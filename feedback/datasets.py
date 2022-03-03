@@ -167,16 +167,20 @@ def get_target(token_offsets, answers, word_offsets, overflow_to_sample):
         [(word_offset[words[0]][1], word_offset[words[-1]][2]) for words, _ in answer]
         for answer, word_offset in zip(answers, word_offsets)
     ]
+    answer_seen = set()
     target = torch.zeros(token_offsets.size()[:-1], dtype=torch.long)
     for i, token_offset in enumerate(token_offsets.tolist()):
         j = overflow_to_sample[i].item()
         answer_tokens = intersect_ranges(answer_ranges[j], token_offset)
         for k, answer_token in enumerate(answer_tokens):
             label = answers[j][k][1]
-            label0 = labels[label + "0"]
             label1 = labels[label + "1"]
+            label0 = labels[label + "0"] if (j, k) not in answer_seen else label1
             target[i, answer_token[0:1]] = label0
             target[i, answer_token[1:]] = label1
+
+            if len(answer_token) > 0:
+                answer_seen.add((j, k))
     return target
 
 
@@ -196,12 +200,13 @@ class FeedbackDataset(Dataset):
         text = self.texts.loc[idx, "text"]
         text_id = self.texts.loc[idx, "id"]
         answer = self.answers[text_id]
+        clean_answer = self.answers[text_id]
         words = self.words[text_id]
-        return text, answer, words
+        return text, answer, clean_answer, words
 
     def get_collate_fn(self):
         def collate_fn(examples):
-            text, answer, words = [list(a) for a in zip(*examples)]
+            text, answer, clean_answer, words = [list(a) for a in zip(*examples)]
             inputs = self.tokenizer(
                 text,
                 add_special_tokens=True,
@@ -212,7 +217,12 @@ class FeedbackDataset(Dataset):
                 max_length=self.max_len,
                 return_tensors="pt",
             )
-            target = get_target(inputs.offset_mapping, answer, words, inputs.overflow_to_sample_mapping)
-            return len(examples), inputs, target
+            target = get_target(
+                inputs.offset_mapping,
+                clean_answer,
+                words,
+                inputs.overflow_to_sample_mapping,
+            )
+            return len(examples), inputs, target, answer
 
         return collate_fn
