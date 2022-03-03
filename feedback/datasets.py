@@ -1,4 +1,4 @@
-from copy import deepcopy
+import copy
 from pathlib import Path
 from collections import defaultdict
 
@@ -115,7 +115,7 @@ def get_answer_dict(df):
 
 
 def get_clean_answers(answers):
-    answers = deepcopy.copy(answers)
+    answers = copy.deepcopy(answers)
     for _, answer in answers.items():
         prev_words = [-1]
         for words, _ in answer:
