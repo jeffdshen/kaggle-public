@@ -200,7 +200,7 @@ class FeedbackDataset(Dataset):
         text = self.texts.loc[idx, "text"]
         text_id = self.texts.loc[idx, "id"]
         answer = self.answers[text_id]
-        clean_answer = self.answers[text_id]
+        clean_answer = self.clean_answers[text_id]
         words = self.words[text_id]
         return text, answer, clean_answer, words
 
