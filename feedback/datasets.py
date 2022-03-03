@@ -179,3 +179,40 @@ def get_target(token_offsets, answers, word_offsets, overflow_to_sample):
             target[i, answer_token[1:]] = label1
     return target
 
+
+class FeedbackDataset(Dataset):
+    def __init__(self, texts, df, tokenizer, max_len):
+        self.texts = texts
+        self.answers = get_answer_dict(df)
+        self.clean_answers = get_clean_answers(self.answers)
+        self.words = get_word_dict(texts)
+        self.tokenizer = tokenizer
+        self.max_len = max_len
+
+    def __len__(self):
+        return len(self.texts)
+
+    def __getitem__(self, idx):
+        text = self.texts.loc[idx, "text"]
+        text_id = self.texts.loc[idx, "id"]
+        answer = self.answers[text_id]
+        words = self.words[text_id]
+        return text, answer, words
+
+    def get_collate_fn(self):
+        def collate_fn(examples):
+            text, answer, words = [list(a) for a in zip(*examples)]
+            inputs = self.tokenizer(
+                text,
+                add_special_tokens=True,
+                padding=True,
+                truncation=True,
+                return_overflowing_tokens=True,
+                return_offsets_mapping=True,
+                max_length=self.max_len,
+                return_tensors="pt",
+            )
+            target = get_target(inputs.offset_mapping, answer, words, inputs.overflow_to_sample_mapping)
+            return len(examples), inputs, target
+
+        return collate_fn
