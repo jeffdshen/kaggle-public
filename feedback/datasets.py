@@ -74,12 +74,12 @@ def split_offsets(line):
     offset = 0
     for word in words:
         begin_offset = line.index(word, offset)
-        offset = offset + len(word)
-        offsets.append((word, begin_offset, offset))
+        offset = begin_offset + len(word)
+        offsets.append((begin_offset, offset))
     return offsets
 
 
-discourse_types = [
+labels = [
     "Lead",
     "Position",
     "Evidence",
@@ -90,16 +90,15 @@ discourse_types = [
 ]
 
 
-def get_labels(types):
-    labels = {"Other": 0}
-    for i, t in enumerate(types):
-        labels[t + "0"] = i * 2 + 1
-    for i, t in enumerate(types):
-        labels[t + "1"] = i * 2 + 2
-    return labels
+def get_labels_to_id(labels):
+    labels_to_id = {"Other": 0}
+    for i, t in enumerate(labels):
+        labels_to_id[t + "0"] = i * 2 + 1
+        labels_to_id[t + "1"] = i * 2 + 2
+    return labels_to_id
 
 
-labels = get_labels(discourse_types)
+labels_to_id = get_labels_to_id(labels)
 
 
 def get_answer_dict(df):
@@ -164,7 +163,7 @@ def intersect_ranges(ranges, items):
 
 def get_target(token_offsets, answers, word_offsets, overflow_to_sample):
     answer_ranges = [
-        [(word_offset[words[0]][1], word_offset[words[-1]][2]) for words, _ in answer]
+        [(word_offset[words[0]][0], word_offset[words[-1]][1]) for words, _ in answer]
         for answer, word_offset in zip(answers, word_offsets)
     ]
     answer_seen = set()
@@ -174,8 +173,8 @@ def get_target(token_offsets, answers, word_offsets, overflow_to_sample):
         answer_tokens = intersect_ranges(answer_ranges[j], token_offset)
         for k, answer_token in enumerate(answer_tokens):
             label = answers[j][k][1]
-            label1 = labels[label + "1"]
-            label0 = labels[label + "0"] if (j, k) not in answer_seen else label1
+            label1 = labels_to_id[label + "1"]
+            label0 = labels_to_id[label + "0"] if (j, k) not in answer_seen else label1
             target[i, answer_token[0:1]] = label0
             target[i, answer_token[1:]] = label1
 
@@ -188,7 +187,7 @@ class FeedbackDataset(Dataset):
     def __init__(self, texts, df, tokenizer, max_len):
         self.texts = texts
         self.answers = get_answer_dict(df)
-        self.clean_answers = get_clean_answers(self.answers)
+        self.answers = get_clean_answers(self.answers)
         self.words = get_word_dict(texts)
         self.tokenizer = tokenizer
         self.max_len = max_len
@@ -200,13 +199,12 @@ class FeedbackDataset(Dataset):
         text = self.texts.loc[idx, "text"]
         text_id = self.texts.loc[idx, "id"]
         answer = self.answers[text_id]
-        clean_answer = self.clean_answers[text_id]
         words = self.words[text_id]
-        return text, answer, clean_answer, words
+        return text, answer, words
 
     def get_collate_fn(self):
         def collate_fn(examples):
-            text, answer, clean_answer, words = [list(a) for a in zip(*examples)]
+            text, answer, words = [list(a) for a in zip(*examples)]
             inputs = self.tokenizer(
                 text,
                 add_special_tokens=True,
@@ -219,10 +217,57 @@ class FeedbackDataset(Dataset):
             )
             target = get_target(
                 inputs.offset_mapping,
-                clean_answer,
+                answer,
                 words,
                 inputs.overflow_to_sample_mapping,
             )
-            return len(examples), inputs, target, answer
+            return len(examples), inputs, target, words, answer
 
         return collate_fn
+
+def get_matches(preds, golds):
+    pred_sets = [set(pred) for pred in preds]
+    gold_sets = [set(gold) for gold in golds]
+    
+    seen = set()
+    matches = []
+    for i, pred_set in enumerate(pred_sets):
+        for j, gold_set in enumerate(gold_sets):
+            if j in seen:
+                continue
+            intersection = len(pred_set.intersection(gold_set))
+            if intersection <= 0.5 * len(gold_set):
+                continue
+            if intersection <= 0.5 * len(pred_set):
+                continue
+            seen.add(j)
+            matches.append((i, j))
+            break
+    return matches
+
+def score(preds_batch, words_batch, answers_batch):
+    tp = defaultdict(int)
+    fp = defaultdict(int)
+    fn = defaultdict(int)
+    for preds, words, answers in zip(preds_batch, words_batch, answers_batch):
+        pred_ranges = [pred[0] for pred in preds]
+        pred_labels = [pred[1] for pred in preds]
+        answer_words = [answer[0] for answer in answers]
+        answer_labels = [answer[1] for answer in answers]
+
+        pred_words = intersect_ranges(pred_ranges, words)
+        matches = get_matches(pred_words, answer_words)
+        for l in pred_labels:
+            fp[l] += 1
+        for l in answer_labels:
+            fn[l] += 1
+        for i, j in matches:
+            l = pred_labels[i]
+            if l != answer_labels[j]:
+                continue
+            tp[l] += 1
+            fp[l] -= 1
+            fn[l] -= 1
+
+    return {l: (tp[l], fp[l], fn[l]) for l in labels}
+    
