@@ -90,15 +90,17 @@ labels = [
 ]
 
 
-def get_labels_to_id(labels):
-    labels_to_id = {"Other": 0}
+def get_label_ids(labels):
+    label_to_id = {(None, 0): 0}
+    id_to_label = {0: (None, 0)}
     for i, t in enumerate(labels):
-        labels_to_id[t + "0"] = i * 2 + 1
-        labels_to_id[t + "1"] = i * 2 + 2
-    return labels_to_id
+        label_to_id[(t, True)] = i * 2 + 1
+        label_to_id[(t, False)] = i * 2 + 2
+        id_to_label[i * 2 + 1] = (t, True)
+        id_to_label[i * 2 + 2] = (t, False)
+    return label_to_id, id_to_label
 
-
-labels_to_id = get_labels_to_id(labels)
+label_to_id, id_to_label = get_label_ids(labels)
 
 
 def get_answer_dict(df):
@@ -173,8 +175,8 @@ def get_target(token_offsets, answers, word_offsets, overflow_to_sample):
         answer_tokens = intersect_ranges(answer_ranges[j], token_offset)
         for k, answer_token in enumerate(answer_tokens):
             label = answers[j][k][1]
-            label1 = labels_to_id[label + "1"]
-            label0 = labels_to_id[label + "0"] if (j, k) not in answer_seen else label1
+            label1 = label_to_id[(label, False)]
+            label0 = label_to_id[(label, True)] if (j, k) not in answer_seen else label1
             target[i, answer_token[0:1]] = label0
             target[i, answer_token[1:]] = label1
 
