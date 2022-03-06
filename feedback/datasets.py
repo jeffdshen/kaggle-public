@@ -101,6 +101,7 @@ def get_label_ids(labels):
     return label_to_id, id_to_label
 
 label_to_id, id_to_label = get_label_ids(labels)
+max_labels = len(label_to_id)
 
 
 def get_answer_dict(df):
