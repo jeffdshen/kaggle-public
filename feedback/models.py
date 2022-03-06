@@ -116,6 +116,8 @@ class FeedbackModel(nn.Module):
 
     def forward(self, x):
         mask = x.attention_mask
+        x = {**x}
+        x = {k: v for k, v in x.items() if k not in {"offset_mapping", "overflow_to_sample_mapping"}}
         x = self.roberta(**x)[0]
         x = self.head(x, mask)
         return x
