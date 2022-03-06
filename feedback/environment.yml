@@ -15,3 +15,5 @@ dependencies:
   - datasets
   - tokenizers
   - kaggle
+  - scikit-learn
+  - ipykernel
