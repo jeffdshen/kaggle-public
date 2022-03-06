@@ -120,10 +120,19 @@ def get_clean_answers(answers):
     answers = copy.deepcopy(answers)
     for _, answer in answers.items():
         prev_words = [-1]
-        for words, _ in answer:
+        cleaned_answer = []
+        for words, label in answer:
             if prev_words[-1] >= words[0]:
-                prev_words.pop()
+                if len(prev_words) == 1:
+                    if len(words) == 1:
+                        continue
+                    words.pop(0)
+                else:
+                    prev_words.pop()
+            cleaned_answer.append((words, label))
             prev_words = words
+        answer.clear()
+        answer.extend(cleaned_answer)
     return answers
 
 
@@ -131,6 +140,8 @@ def check_answer_dict(answers):
     for answer in answers.values():
         prev = -1
         for words, _ in answer:
+            if len(words) == 0:
+                return False
             for word_id in words:
                 if prev >= word_id:
                     return False
