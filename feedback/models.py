@@ -39,7 +39,7 @@ class SoftmaxHead(nn.Module):
     @staticmethod
     def get_loss(z, y, x, ignore_idx=-1):
         mask = x.attention_mask
-        y = y.masked_fill(mask, ignore_idx)
+        y = y.masked_fill(mask.bool(), ignore_idx)
         return F.cross_entropy(
             z.transpose(1, -1), y.transpose(1, -1), ignore_index=ignore_idx
         )
