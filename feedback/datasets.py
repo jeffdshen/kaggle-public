@@ -6,7 +6,10 @@ import pandas as pd
 import torch
 from torch.utils.data import Dataset
 
-import datasets as hf_datasets
+try:
+    import datasets as hf_datasets
+except ImportError:
+    pass
 
 
 def get_texts_df(dir_path):
