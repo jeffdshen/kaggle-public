@@ -187,7 +187,7 @@ def train_loop(
                 print(" | ".join(results) + best)
                 if is_best:
                     torch.save(model.state_dict(), f"./best_{fold}.pth")
-    return best_meter.min
+    return best_meter.max
 
 
 def train(fold, train_dataset, valid_dataset, config):
