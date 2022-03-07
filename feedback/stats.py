@@ -80,10 +80,14 @@ class F1Meter:
             self.scores[k] = np.add(self.scores[k], v)
 
         f1_score_sum = 0
+        f1_score_count = 0
         for k, v in self.scores.items():
+            if v[0] + v[1] + v[2] < 1:
+                continue
             f1_score = v[0] / (v[0] + 0.5 * v[1] + 0.5 * v[2])
             f1_score_sum += f1_score
-        self.f1 = f1_score_sum / len(self.scores)
+            f1_score_count += 1
+        self.f1 = f1_score_sum / f1_score_count
 
 
 class F1EMAMeter:

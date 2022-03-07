@@ -198,13 +198,14 @@ def get_target(token_offsets, answers, word_offsets, overflow_to_sample):
 
 
 class FeedbackDataset(Dataset):
-    def __init__(self, texts, df, tokenizer, max_len):
+    def __init__(self, texts, df, tokenizer, max_len, stride):
         self.texts = texts
         self.answers = get_answer_dict(df)
         self.answers = get_clean_answers(self.answers)
         self.words = get_word_dict(texts)
         self.tokenizer = tokenizer
         self.max_len = max_len
+        self.stride = stride
 
     def __len__(self):
         return len(self.texts)
@@ -227,6 +228,7 @@ class FeedbackDataset(Dataset):
                 return_overflowing_tokens=True,
                 return_offsets_mapping=True,
                 max_length=self.max_len,
+                stride=self.stride,
                 return_tensors="pt",
             )
             target = get_target(
