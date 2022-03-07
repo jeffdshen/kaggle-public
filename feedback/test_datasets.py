@@ -11,6 +11,7 @@ from .datasets import (
     get_target,
     get_word_dict,
     intersect_ranges,
+    pred_to_words,
     score,
     split_offsets,
 )
@@ -225,6 +226,39 @@ class ScoreTestCase(unittest.TestCase):
         }
         self.assertEqual(scores, expected)
 
+    def test_to_pred_words(self):
+        preds = [
+            [
+                ((0, 18), "Lead"),
+                ((20, 30), "Position"),
+                ((30, 45), "Claim"),
+                ((45, 50), "Position"),
+            ],
+            [
+                ((0, 15), "Position"),
+                ((15, 20), "Claim"),
+                ((20, 37), "Lead"),
+            ],
+        ]
+        texts = [
+            "I do agree that X.\n A A A. There are some Y.  A A.",
+            "Hello. There should be. X. There are.",
+        ]
+        word_offsets = [split_offsets(text) for text in texts]
+        pred_words = pred_to_words(preds, word_offsets)
+        expected = [
+            [
+                ([0, 1, 2, 3, 4], "Lead"),
+                ([5, 6, 7, 8], "Position"),
+                ([9, 10, 11], "Claim"),
+                ([12, 13], "Position"),
+            ],
+            [
+                ([0, 1, 2], "Position"),
+                ([3, 4, 5, 6], "Lead"),
+            ],
+        ]
+        self.assertEqual(pred_words, expected)
 
 if __name__ == "__main__":
     unittest.main()

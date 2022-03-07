@@ -100,6 +100,7 @@ def get_label_ids(labels):
         id_to_label[i * 2 + 2] = (t, False)
     return label_to_id, id_to_label
 
+
 label_to_id, id_to_label = get_label_ids(labels)
 max_labels = len(label_to_id)
 
@@ -241,10 +242,11 @@ class FeedbackDataset(Dataset):
 
         return collate_fn
 
+
 def get_matches(preds, golds):
     pred_sets = [set(pred) for pred in preds]
     gold_sets = [set(gold) for gold in golds]
-    
+
     seen = set()
     matches = []
     for i, pred_set in enumerate(pred_sets):
@@ -261,15 +263,14 @@ def get_matches(preds, golds):
             break
     return matches
 
+
 def score(preds_batch, words_batch, answers_batch):
     tp = defaultdict(int)
     fp = defaultdict(int)
     fn = defaultdict(int)
     for preds, words, answers in zip(preds_batch, words_batch, answers_batch):
-        pred_ranges = [pred[0] for pred in preds]
-        pred_labels = [pred[1] for pred in preds]
-        answer_words = [answer[0] for answer in answers]
-        answer_labels = [answer[1] for answer in answers]
+        pred_ranges, pred_labels = zip(*preds)
+        answer_words, answer_labels = zip(*answers)
 
         pred_words = intersect_ranges(pred_ranges, words)
         matches = get_matches(pred_words, answer_words)
@@ -286,4 +287,14 @@ def score(preds_batch, words_batch, answers_batch):
             fn[l] -= 1
 
     return {l: (tp[l], fp[l], fn[l]) for l in labels}
-    
+
+
+def pred_to_words(preds_batch, words_batch):
+    pred_words_batch = []
+    for preds, words in zip(preds_batch, words_batch):
+        pred_ranges, pred_labels = zip(*preds)
+        pred_words = intersect_ranges(pred_ranges, words)
+        pred_words = [(a, b) for a, b in list(zip(pred_words, pred_labels)) if a]
+        pred_words_batch.append(pred_words)
+
+    return pred_words_batch
