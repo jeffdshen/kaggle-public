@@ -6,7 +6,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim.lr_scheduler as sched
 
-from transformers import AutoModel
+from transformers import AutoModel, BatchEncoding
 
 from .datasets import id_to_label
 
@@ -117,7 +117,11 @@ class FeedbackModel(nn.Module):
     def forward(self, x):
         mask = x.attention_mask
         x = {**x}
-        x = {k: v for k, v in x.items() if k not in {"offset_mapping", "overflow_to_sample_mapping"}}
+        x = {
+            k: v
+            for k, v in x.items()
+            if k not in {"offset_mapping", "overflow_to_sample_mapping"}
+        }
         x = self.roberta(**x)[0]
         x = self.head(x, mask)
         return x
@@ -127,6 +131,16 @@ class FeedbackModel(nn.Module):
 
     def get_pred(self, z, x):
         return self.head.get_pred(z, x)
+
+
+def split_batch(x, size):
+    x = {**x}
+    items = []
+    for k, v in x.items():
+        v_split = torch.split(v, size)
+        items.append(list(zip([k for _ in range(len(v_split))], v_split)))
+    items = [BatchEncoding({k: v for k, v in batch}) for batch in zip(*items)]
+    return items
 
 
 def get_linear_warmup_power_decay_scheduler(
