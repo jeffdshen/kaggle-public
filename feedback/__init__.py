@@ -14,3 +14,5 @@ from .models import FeedbackModel, get_linear_warmup_power_decay_scheduler
 from .stats import EMAMeter, AverageMeter, MinMeter, F1Meter, MaxMeter, F1EMAMeter
 
 from .train import run, to_device
+
+from .infer import predict_fold, get_submission
