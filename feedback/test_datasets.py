@@ -226,6 +226,29 @@ class ScoreTestCase(unittest.TestCase):
         }
         self.assertEqual(scores, expected)
 
+    def test_score_empty(self):
+        answers = [
+            [([0, 1, 2, 3, 4], "Lead"), ([8, 9, 10, 11], "Position")],
+            [([1, 2, 3], "Position"), ([5, 6], "Claim")],
+        ]
+        texts = [
+            "I do agree that X.\n A A A. There are some Y.  A A.",
+            "Hello. There should be. X. There are.",
+        ]
+        word_offsets = [split_offsets(text) for text in texts]
+        preds = [[], []]
+        scores = score(preds, word_offsets, answers)
+        expected = {
+            "Lead": (0, 0, 0),
+            "Position": (0, 0, 0),
+            "Evidence": (0, 0, 0),
+            "Claim": (0, 0, 0),
+            "Concluding Statement": (0, 0, 0),
+            "Counterclaim": (0, 0, 0),
+            "Rebuttal": (0, 0, 0),
+        }
+        self.assertEqual(scores, expected)
+
     def test_to_pred_words(self):
         preds = [
             [
@@ -259,6 +282,18 @@ class ScoreTestCase(unittest.TestCase):
             ],
         ]
         self.assertEqual(pred_words, expected)
+
+    def test_to_pred_words_empty(self):
+        preds = [[], []]
+        texts = [
+            "I do agree that X.\n A A A. There are some Y.  A A.",
+            "Hello. There should be. X. There are.",
+        ]
+        word_offsets = [split_offsets(text) for text in texts]
+        pred_words = pred_to_words(preds, word_offsets)
+        expected = [[], []]
+        self.assertEqual(pred_words, expected)
+
 
 if __name__ == "__main__":
     unittest.main()

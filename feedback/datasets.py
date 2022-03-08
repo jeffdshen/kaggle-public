@@ -272,6 +272,9 @@ def score(preds_batch, words_batch, answers_batch):
     fp = defaultdict(int)
     fn = defaultdict(int)
     for preds, words, answers in zip(preds_batch, words_batch, answers_batch):
+        if not preds:
+            continue
+
         pred_ranges, pred_labels = zip(*preds)
         answer_words, answer_labels = zip(*answers)
 
@@ -295,6 +298,10 @@ def score(preds_batch, words_batch, answers_batch):
 def pred_to_words(preds_batch, words_batch):
     pred_words_batch = []
     for preds, words in zip(preds_batch, words_batch):
+        if not preds:
+            pred_words_batch.append([])
+            continue
+
         pred_ranges, pred_labels = zip(*preds)
         pred_words = intersect_ranges(pred_ranges, words)
         pred_words = [(a, b) for a, b in list(zip(pred_words, pred_labels)) if a]
