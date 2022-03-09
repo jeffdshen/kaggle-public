@@ -9,7 +9,7 @@ from .datasets import (
     pred_to_words,
 )
 
-from .models import FeedbackModel, get_linear_warmup_power_decay_scheduler
+from .models import FeedbackModel, get_linear_warmup_power_decay_scheduler, split_batch
 
 from .stats import EMAMeter, AverageMeter, MinMeter, F1Meter, MaxMeter, F1EMAMeter
 
