@@ -13,6 +13,7 @@ from .datasets import (
     intersect_ranges,
     pred_to_words,
     score,
+    score_words,
     split_offsets,
 )
 
@@ -219,7 +220,7 @@ class ScoreTestCase(unittest.TestCase):
             "Lead": (1, 1, 0),
             "Position": (1, 2, 1),
             "Evidence": (0, 0, 0),
-            "Claim": (0, 2, 1),
+            "Claim": (0, 1, 1),
             "Concluding Statement": (0, 0, 0),
             "Counterclaim": (0, 0, 0),
             "Rebuttal": (0, 0, 0),
@@ -239,10 +240,10 @@ class ScoreTestCase(unittest.TestCase):
         preds = [[], []]
         scores = score(preds, word_offsets, answers)
         expected = {
-            "Lead": (0, 0, 0),
-            "Position": (0, 0, 0),
+            "Lead": (0, 0, 1),
+            "Position": (0, 0, 2),
             "Evidence": (0, 0, 0),
-            "Claim": (0, 0, 0),
+            "Claim": (0, 0, 1),
             "Concluding Statement": (0, 0, 0),
             "Counterclaim": (0, 0, 0),
             "Rebuttal": (0, 0, 0),

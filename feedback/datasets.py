@@ -14,6 +14,7 @@ except ImportError:
 
 def get_texts_df(dir_path):
     paths = [x for x in dir_path.iterdir() if x.is_file() and x.suffix == ".txt"]
+    paths.sort(key=lambda path: path.stem)
     texts = []
     for path in paths:
         with open(path) as f:
@@ -267,30 +268,32 @@ def get_matches(preds, golds):
     return matches
 
 
+def _score_single(tp, fp, fn, pred_words, pred_labels, answer_words, answer_labels):
+    matches = get_matches(pred_words, answer_words)
+    for l in pred_labels:
+        fp[l] += 1
+    for l in answer_labels:
+        fn[l] += 1
+    for i, j in matches:
+        l = pred_labels[i]
+        if l != answer_labels[j]:
+            continue
+        tp[l] += 1
+        fp[l] -= 1
+        fn[l] -= 1
+
+
 def score(preds_batch, words_batch, answers_batch):
+    return score_words(pred_to_words(preds_batch, words_batch), answers_batch)
+
+def score_words(preds_batch, answers_batch):
     tp = defaultdict(int)
     fp = defaultdict(int)
     fn = defaultdict(int)
-    for preds, words, answers in zip(preds_batch, words_batch, answers_batch):
-        if not preds:
-            continue
-
-        pred_ranges, pred_labels = zip(*preds)
+    for preds, answers in zip(preds_batch, answers_batch):
+        pred_words, pred_labels = zip(*preds) if preds else ([], [])
         answer_words, answer_labels = zip(*answers)
-
-        pred_words = intersect_ranges(pred_ranges, words)
-        matches = get_matches(pred_words, answer_words)
-        for l in pred_labels:
-            fp[l] += 1
-        for l in answer_labels:
-            fn[l] += 1
-        for i, j in matches:
-            l = pred_labels[i]
-            if l != answer_labels[j]:
-                continue
-            tp[l] += 1
-            fp[l] -= 1
-            fn[l] -= 1
+        _score_single(tp, fp, fn, pred_words, pred_labels, answer_words, answer_labels)
 
     return {l: (tp[l], fp[l], fn[l]) for l in labels}
 

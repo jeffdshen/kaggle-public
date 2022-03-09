@@ -5,6 +5,7 @@ from .datasets import (
     get_block_dataset,
     FeedbackDataset,
     score,
+    score_words,
     max_labels,
     pred_to_words,
 )
