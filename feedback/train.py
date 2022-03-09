@@ -21,7 +21,7 @@ from sklearn.model_selection import KFold, ShuffleSplit
 
 from .utils import set_seed
 from .datasets import get_block_dataset, score, FeedbackDataset, max_labels
-from .models import FeedbackModel, get_linear_warmup_power_decay_scheduler
+from .models import FeedbackModel, get_linear_warmup_power_decay_scheduler, split_batch
 from .stats import EMAMeter, F1Meter, AverageMeter, MaxMeter, F1EMAMeter
 
 
@@ -101,7 +101,34 @@ def forward(model, example):
     return loss, scores
 
 
-def evaluate(model, device, data_loader):
+def forward_backward(model, example, model_batch_size, backward):
+    x_batch, y_batch, words, answers = example
+    x_chunks = split_batch(x_batch, model_batch_size)
+    y_chunks = torch.split(y_batch, model_batch_size)
+    z_chunks = []
+    total_loss = []
+    for x, y in zip(x_chunks, y_chunks):
+        z = model(x)
+        z_chunks.append(z.detach().clone())
+
+        with amp.autocast():
+            loss = model.get_loss(z, y, x)
+
+        total_loss.append(loss.item())
+        backward(loss)
+
+    z_batch = torch.cat(z_chunks)
+
+    pred = model.get_pred(z_batch, x_batch)
+    scores = score(pred, words, answers)
+    return np.average(total_loss), scores
+
+
+def noop_backward(_):
+    pass
+
+
+def evaluate(model, device, data_loader, config):
     valid_loss_meter = AverageMeter()
     valid_f1_score = F1Meter()
 
@@ -112,9 +139,11 @@ def evaluate(model, device, data_loader):
             example = to_device(example, device)
 
             with amp.autocast():
-                loss, scores = forward(model, example)
+                loss, scores = forward_backward(
+                    model, example, config["model_batch_size"], noop_backward
+                )
 
-            valid_loss_meter.add(loss.item(), batch_size)
+            valid_loss_meter.add(loss, batch_size)
             valid_f1_score.add(scores, batch_size)
 
     return valid_loss_meter.avg, valid_f1_score.f1
@@ -139,6 +168,23 @@ def train_loop(
     train_f1_meter = F1EMAMeter(config["train_loss_ema"])
     best_meter = MaxMeter()
 
+    def backward(loss):
+        nonlocal step_num, sample_num, samples_since_eval
+        # Backward
+        scaler.scale(loss / config["gradient_accumulation"]).backward()
+
+        # Step
+        if (step_num + 1) % config["gradient_accumulation"] == 0:
+            scaler.unscale_(optimizer)
+            nn.utils.clip_grad_norm_(model.parameters(), config["max_grad_norm"])
+            scaler.step(optimizer)
+            scaler.update()
+            scheduler.step()
+            optimizer.zero_grad()
+        step_num += 1
+        sample_num += batch_size
+        samples_since_eval += batch_size
+
     for epoch in range(config["num_epochs"]):
         print(f"Starting epoch {epoch}")
         for example in train_loader:
@@ -146,32 +192,18 @@ def train_loop(
             example = to_device(example, device)
 
             # Forward
-            with amp.autocast():
-                loss, scores = forward(model, example)
+            loss, scores = forward_backward(
+                model, example, config["model_batch_size"], backward
+            )
 
             # Stats
-            train_loss_meter.add(loss.item(), batch_size)
+            train_loss_meter.add(loss, batch_size)
             train_f1_meter.add(scores, batch_size)
-
-            # Backward
-            scaler.scale(loss / config["gradient_accumulation"]).backward()
-
-            # Step
-            if (step_num + 1) % config["gradient_accumulation"] == 0:
-                scaler.unscale_(optimizer)
-                nn.utils.clip_grad_norm_(model.parameters(), config["max_grad_norm"])
-                scaler.step(optimizer)
-                scaler.update()
-                scheduler.step()
-                optimizer.zero_grad()
-            step_num += 1
-            sample_num += batch_size
-            samples_since_eval += batch_size
 
             # Validation
             if samples_since_eval >= config["eval_per_n_samples"]:
                 samples_since_eval = 0
-                valid_loss, valid_f1 = evaluate(model, device, valid_loader)
+                valid_loss, valid_f1 = evaluate(model, device, valid_loader, config)
                 is_best = best_meter.add(valid_f1)
                 best = " (Best)" if is_best else ""
 
