@@ -169,7 +169,7 @@ def train_loop(
     best_meter = MaxMeter()
 
     def backward(loss):
-        nonlocal step_num, sample_num, samples_since_eval
+        nonlocal step_num
         # Backward
         scaler.scale(loss / config["gradient_accumulation"]).backward()
 
@@ -182,8 +182,6 @@ def train_loop(
             scheduler.step()
             optimizer.zero_grad()
         step_num += 1
-        sample_num += batch_size
-        samples_since_eval += batch_size
 
     for epoch in range(config["num_epochs"]):
         print(f"Starting epoch {epoch}")
@@ -195,6 +193,8 @@ def train_loop(
             loss, scores = forward_backward(
                 model, example, config["model_batch_size"], backward
             )
+            sample_num += batch_size
+            samples_since_eval += batch_size
 
             # Stats
             train_loss_meter.add(loss, batch_size)
