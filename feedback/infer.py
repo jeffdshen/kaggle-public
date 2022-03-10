@@ -12,6 +12,7 @@ from transformers import AutoTokenizer
 from .datasets import FeedbackDataset, pred_to_words, max_labels
 from .models import FeedbackModel, split_batch
 from .train import to_device
+from .ensemble import ensemble
 
 
 def get_preds(model, example, model_batch_size):

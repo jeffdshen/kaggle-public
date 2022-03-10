@@ -16,4 +16,4 @@ from .stats import EMAMeter, AverageMeter, MinMeter, F1Meter, MaxMeter, F1EMAMet
 
 from .train import run, to_device
 
-from .infer import predict_fold, get_submission
+from .infer import predict_fold, get_submission, ensemble
