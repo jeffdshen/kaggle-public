@@ -64,10 +64,12 @@ def find_largest_ranges(windows, best_windows, a, b, alpha, beta, answers):
         s, e = best_windows[left_b - 1]
         if s < best_s:
             break
+        left_b -= 1
     while right_a < b:
         s, e = best_windows[right_a]
         if e > best_e:
             break
+        right_a += 1
 
     window = windows[best_i]
     scores = defaultdict(float)
