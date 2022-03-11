@@ -203,7 +203,7 @@ def get_target(token_offsets, answers, word_offsets, overflow_to_sample):
 
 
 class FeedbackDataset(Dataset):
-    def __init__(self, texts, df, tokenizer, max_len, stride):
+    def __init__(self, texts, df, tokenizer, max_len, stride, pad_to_multiple_of):
         self.texts = texts
         self.answers = get_answer_dict(df)
         self.answers = get_clean_answers(self.answers)
@@ -211,6 +211,7 @@ class FeedbackDataset(Dataset):
         self.tokenizer = tokenizer
         self.max_len = max_len
         self.stride = stride
+        self.pad_to_multiple_of = pad_to_multiple_of
 
     def __len__(self):
         return len(self.texts)
@@ -235,6 +236,7 @@ class FeedbackDataset(Dataset):
                 max_length=self.max_len,
                 stride=self.stride,
                 return_tensors="pt",
+                pad_to_multiple_of=self.pad_to_multiple_of,
             )
             target = get_target(
                 inputs.offset_mapping,
@@ -285,6 +287,7 @@ def _score_single(tp, fp, fn, pred_words, pred_labels, answer_words, answer_labe
 
 def score(preds_batch, words_batch, answers_batch):
     return score_words(pred_to_words(preds_batch, words_batch), answers_batch)
+
 
 def score_words(preds_batch, answers_batch):
     tp = defaultdict(int)

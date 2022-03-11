@@ -232,6 +232,7 @@ def train(fold, train_dataset, valid_dataset, config):
         tokenizer,
         config["max_len"],
         config["stride"],
+        config["pad_to_multiple_of"],
     )
     valid_dataset = FeedbackDataset(
         valid_dataset[0],
@@ -239,6 +240,7 @@ def train(fold, train_dataset, valid_dataset, config):
         tokenizer,
         config["max_len"],
         config["stride"],
+        config["pad_to_multiple_of"],
     )
     train_loader = DataLoader(
         train_dataset,

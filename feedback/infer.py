@@ -39,6 +39,7 @@ def predict(
     stride,
     batch_size,
     model_batch_size,
+    pad_to_multiple_of,
     device="cuda",
 ):
     model = FeedbackModel(model_path, head, max_labels)
@@ -48,7 +49,14 @@ def predict(
     tokenizer = AutoTokenizer.from_pretrained(model_path)
 
     df = pd.DataFrame()
-    test_dataset = FeedbackDataset(texts, df, tokenizer, max_len=max_len, stride=stride)
+    test_dataset = FeedbackDataset(
+        texts,
+        df,
+        tokenizer,
+        max_len=max_len,
+        stride=stride,
+        pad_to_multiple_of=pad_to_multiple_of,
+    )
     test_loader = DataLoader(
         test_dataset,
         shuffle=False,
@@ -85,6 +93,7 @@ def predict_fold(texts, model_path, train_config, fold):
         stride=train_config.stride,
         batch_size=train_config.batch_size,
         model_batch_size=train_config.model_batch_size,
+        pad_to_multiple_of=train_config.pad_to_multiple_of,
     )
 
 
