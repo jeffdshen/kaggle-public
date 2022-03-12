@@ -138,10 +138,9 @@ def evaluate(model, device, data_loader, config):
             batch_size, example = example[0], example[1:]
             example = to_device(example, device)
 
-            with amp.autocast():
-                loss, scores = forward_backward(
-                    model, example, config["model_batch_size"], noop_backward
-                )
+            loss, scores = forward_backward(
+                model, example, config["model_batch_size"], noop_backward
+            )
 
             valid_loss_meter.add(loss, batch_size)
             valid_f1_score.add(scores, batch_size)
