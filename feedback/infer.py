@@ -36,13 +36,14 @@ def predict(
     model_path,
     head,
     max_len,
+    dropout,
     stride,
     batch_size,
     model_batch_size,
     pad_to_multiple_of,
     device="cuda",
 ):
-    model = FeedbackModel(model_path, head, max_labels)
+    model = FeedbackModel(model_path, head, max_labels, dropout=dropout)
     model.load_state_dict(torch.load(path, map_location=device))
     model = model.to(device)
 
@@ -90,6 +91,7 @@ def predict_fold(texts, model_path, train_config, fold):
         model_path,
         head=train_config.head,
         max_len=train_config.max_len,
+        dropout=train_config.dropout,
         stride=train_config.stride,
         batch_size=train_config.batch_size,
         model_batch_size=train_config.model_batch_size,
