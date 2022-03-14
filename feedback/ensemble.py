@@ -111,53 +111,53 @@ def ensemble(preds, weights, segment_threshold):
     return ensemble_list(preds, weights, segment_threshold)
 
 
-## Old code for ensembling where each model votes for adjacent connections
-## rather than voting for ranges as a whole
-
-# def ensemble_calc_scores(preds, weights):
-#     scores = defaultdict(lambda: defaultdict(float))
-#     total_scores = defaultdict(float)
-#     max_word = 0
-#     for pred, weight in zip(preds, weights):
-#         for words, label in pred:
-#             words.sort()
-#             max_word = max(max_word, words[-1] * 2)
-#             for i in range(words[0] * 2, words[-1] * 2 + 1):
-#                 scores[i][label] += weight
-#                 total_scores[i] += weight
-#     return scores, total_scores, max_word
+## Ensembling where each model votes for adjacent connections rather than ranges
+def ensemble_calc_scores(preds, weights):
+    scores = defaultdict(lambda: defaultdict(float))
+    total_scores = defaultdict(float)
+    max_word = 0
+    for pred, weight in zip(preds, weights):
+        for words, label in pred:
+            words.sort()
+            max_word = max(max_word, words[-1] * 2)
+            for i in range(words[0] * 2, words[-1] * 2 + 1):
+                scores[i][label] += weight
+                total_scores[i] += weight
+    return scores, total_scores, max_word
 
 
-# def ensemble_calc_pred(scores, total_scores, max_word, segment_threshold):
-#     final_pred = []
-#     cur_words = []
-#     cur_labels = defaultdict(float)
-#     for i in range(0, max_word + 2):
-#         if total_scores[i] > segment_threshold:
-#             cur_words.append(i)
-#             for k, v in scores[i].items():
-#                 cur_labels[k] += v
-#             continue
+def ensemble_calc_pred(scores, total_scores, max_word, segment_threshold):
+    final_pred = []
+    cur_words = []
+    cur_labels = defaultdict(float)
+    for i in range(0, max_word + 2):
+        if total_scores[i] > segment_threshold:
+            cur_words.append(i)
+            for k, v in scores[i].items():
+                cur_labels[k] += v
+            continue
 
-#         if not cur_words:
-#             continue
+        if not cur_words:
+            continue
 
-#         start, end = cur_words[0] // 2, (cur_words[-1] // 2 + 1)
-#         max_label = max(cur_labels, key=cur_labels.get)
-#         final_pred.append((list(range(start, end)), max_label))
-#         cur_words.clear()
-#         cur_labels.clear()
-#     return final_pred
+        start, end = cur_words[0] // 2, (cur_words[-1] // 2 + 1)
+        max_label = max(cur_labels, key=cur_labels.get)
+        final_pred.append((list(range(start, end)), max_label))
+        cur_words.clear()
+        cur_labels.clear()
+    return final_pred
 
 
-# def ensemble(preds, weights, segment_threshold):
-#     pred_weights = [(v, weights[k]) for k, v in preds.items()]
-#     preds, weights = zip(*pred_weights)
-#     preds = zip(*preds)
-#     final_preds = []
-#     weights = np.array(weights) / np.sum(weights)
-#     for pred in preds:
-#         scores, total_scores, max_word = ensemble_calc_scores(pred, weights)
-#         final_pred = ensemble_calc_pred(scores, total_scores, max_word, segment_threshold)
-#         final_preds.append(final_pred)
-#     return final_preds
+def adj_ensemble(preds, weights, segment_threshold):
+    pred_weights = [(v, weights[k]) for k, v in preds.items()]
+    preds, weights = zip(*pred_weights)
+    preds = zip(*preds)
+    final_preds = []
+    weights = np.array(weights) / np.sum(weights)
+    for pred in preds:
+        scores, total_scores, max_word = ensemble_calc_scores(pred, weights)
+        final_pred = ensemble_calc_pred(
+            scores, total_scores, max_word, segment_threshold
+        )
+        final_preds.append(final_pred)
+    return final_preds
