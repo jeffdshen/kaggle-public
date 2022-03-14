@@ -3,6 +3,7 @@ from pathlib import Path
 from collections import defaultdict
 
 import pandas as pd
+import numpy as np
 import torch
 from torch.utils.data import Dataset
 
@@ -314,3 +315,51 @@ def pred_to_words(preds_batch, words_batch):
         pred_words_batch.append(pred_words)
 
     return pred_words_batch
+
+
+def _confusion_matrix_single(
+    matrix, pred_words, pred_labels, answer_words, answer_labels, to_id
+):
+    matches = get_matches(pred_words, answer_words)
+    pred_seen = [False for _ in range(len(pred_labels))]
+    answer_seen = [False for _ in range(len(answer_labels))]
+
+    for i, j in matches:
+        pred_seen[i] = True
+        answer_seen[j] = True
+        p = to_id[pred_labels[i]]
+        a = to_id[answer_labels[j]]
+        matrix[p, a] += 1
+
+    for seen, p in zip(pred_seen, pred_labels):
+        if seen:
+            continue
+        matrix[to_id[p], to_id[None]] += 1
+
+    for seen, a in zip(answer_seen, answer_labels):
+        if seen:
+            continue
+        matrix[to_id[None], to_id[a]] += 1
+
+
+def confusion_matrix_words(preds_batch, answers_batch):
+    full_labels = labels + [None]
+    to_id = {l: i for i, l in enumerate(full_labels)}
+
+    matrix = np.zeros((len(full_labels), len(full_labels)), dtype=np.int64)
+    for preds, answers in zip(preds_batch, answers_batch):
+        pred_words, pred_labels = zip(*preds) if preds else ([], [])
+        answer_words, answer_labels = zip(*answers)
+        _confusion_matrix_single(
+            matrix, pred_words, pred_labels, answer_words, answer_labels, to_id
+        )
+
+    full_labels[-1] = "Unmatched"
+    df = pd.DataFrame(matrix, index=full_labels, columns=full_labels)
+    return df
+
+
+def confusion_matrix(preds_batch, words_batch, answers_batch):
+    return confusion_matrix_words(
+        pred_to_words(preds_batch, words_batch), answers_batch
+    )

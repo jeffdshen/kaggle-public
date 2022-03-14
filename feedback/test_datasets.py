@@ -5,6 +5,8 @@ import pandas as pd
 
 from .datasets import (
     check_answer_dict,
+    confusion_matrix,
+    confusion_matrix_words,
     get_answer_dict,
     get_clean_answers,
     get_matches,
@@ -226,6 +228,56 @@ class ScoreTestCase(unittest.TestCase):
             "Rebuttal": (0, 0, 0),
         }
         self.assertEqual(scores, expected)
+
+    def test_confusion_matrix(self):
+        answers = [
+            [([0, 1, 2, 3, 4], "Lead"), ([8, 9, 10, 11], "Position")],
+            [([1, 2, 3], "Position"), ([5, 6], "Claim")],
+        ]
+        texts = [
+            "I do agree that X.\n A A A. There are some Y.  A A.",
+            "Hello. There should be. X. There are.",
+        ]
+        word_offsets = [split_offsets(text) for text in texts]
+        preds = [
+            [
+                ((0, 18), "Lead"),
+                ((20, 30), "Position"),
+                ((30, 45), "Claim"),
+                ((45, 50), "Position"),
+            ],
+            [
+                ((0, 15), "Position"),
+                ((15, 20), "Claim"),
+                ((20, 37), "Lead"),
+            ],
+        ]
+        df = confusion_matrix(preds, word_offsets, answers)
+        full_labels = [
+            "Lead",
+            "Position",
+            "Evidence",
+            "Claim",
+            "Concluding Statement",
+            "Counterclaim",
+            "Rebuttal",
+            "Unmatched",
+        ]
+        expected = pd.DataFrame(
+            [
+                [1, 0, 0, 0, 0, 0, 0, 1],
+                [0, 1, 0, 0, 0, 0, 0, 2],
+                [0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 1, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 1, 0, 0, 0, 0],
+            ],
+            index=full_labels,
+            columns=full_labels,
+        )
+        self.assertTrue(df.equals(expected))
 
     def test_score_empty(self):
         answers = [
