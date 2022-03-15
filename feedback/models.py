@@ -32,7 +32,7 @@ class SoftmaxHead(nn.Module):
         super().__init__()
         self.ff = FF(dim, ff_dim, output_dim)
         weight = torch.tensor(weight)
-        self.loss = nn.CrossEntropyLoss(weight=weight, ignore_idx=ignore_idx)
+        self.loss = nn.CrossEntropyLoss(weight=weight, ignore_index=ignore_idx)
         self.ignore_idx = ignore_idx
 
     def forward(self, x, mask):
