@@ -96,7 +96,7 @@ class SoftmaxHead(nn.Module):
 
 
 class FeedbackModel(nn.Module):
-    def __init__(self, path, head, max_labels, weight=None, dropout=None):
+    def __init__(self, path, head, max_labels, dropout=None, weight=None):
         super().__init__()
         if dropout is None:
             self.roberta = AutoModel.from_pretrained(path)

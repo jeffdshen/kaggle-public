@@ -258,7 +258,11 @@ def train(fold, train_dataset, valid_dataset, config):
 
     print(f"Loading model: {config['model_path']}")
     model = FeedbackModel(
-        config["model_path"], config["head"], max_labels, config["dropout"], config["weight"]
+        config["model_path"],
+        config["head"],
+        max_labels,
+        dropout=config["dropout"],
+        weight=config["weight"],
     )
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = model.to(device)
