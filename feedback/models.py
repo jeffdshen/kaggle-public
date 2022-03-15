@@ -28,21 +28,21 @@ class FF(nn.Module):
 
 
 class SoftmaxHead(nn.Module):
-    def __init__(self, dim, ff_dim, output_dim):
+    def __init__(self, dim, ff_dim, output_dim, weight=None, ignore_idx=-1):
         super().__init__()
         self.ff = FF(dim, ff_dim, output_dim)
+        weight = torch.tensor(weight)
+        self.loss = nn.CrossEntropyLoss(weight=weight, ignore_idx=ignore_idx)
+        self.ignore_idx = ignore_idx
 
     def forward(self, x, mask):
         x = self.ff(x)
         return x
 
-    @staticmethod
-    def get_loss(z, y, x, ignore_idx=-1):
+    def get_loss(self, z, y, x):
         mask = x.attention_mask
-        y = y.masked_fill(mask == 0, ignore_idx)
-        return F.cross_entropy(
-            z.transpose(1, -1), y.transpose(1, -1), ignore_index=ignore_idx
-        )
+        y = y.masked_fill(mask == 0, self.ignore_idx)
+        return self.loss(z.transpose(1, -1), y.transpose(1, -1))
 
     @staticmethod
     def get_pred(z, x):
@@ -96,7 +96,7 @@ class SoftmaxHead(nn.Module):
 
 
 class FeedbackModel(nn.Module):
-    def __init__(self, path, head, max_labels, dropout=None):
+    def __init__(self, path, head, max_labels, weight=None, dropout=None):
         super().__init__()
         if dropout is None:
             self.roberta = AutoModel.from_pretrained(path)
@@ -110,7 +110,9 @@ class FeedbackModel(nn.Module):
         config = self.roberta.config
         hidden_size = config.hidden_size
         if head == "softmax":
-            self.head = SoftmaxHead(hidden_size, hidden_size, output_dim=max_labels)
+            self.head = SoftmaxHead(
+                hidden_size, hidden_size, output_dim=max_labels, weight=weight
+            )
         else:
             raise RuntimeError("Unknown model head")
 
