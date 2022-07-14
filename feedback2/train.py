@@ -301,7 +301,7 @@ def get_dataset_splits_for_training(texts, df, config):
     kf = ShuffleSplit(
         n_splits=config["folds"],
         test_size=config["mini_val"],
-        random_state=config["seed"] + 1,
+        random_state=config["kf_seed"],
     )
     for train_index, valid_index in kf.split(texts):
         train_text = texts.iloc[train_index].reset_index(drop=True)
