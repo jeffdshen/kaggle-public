@@ -117,11 +117,21 @@ def get_targets(labels, overflow_to_sample):
 
 
 class Feedback2Dataset(Dataset):
-    def __init__(self, texts, df, tokenizer, max_len, stride, pad_to_multiple_of):
+    def __init__(
+        self,
+        texts,
+        df,
+        tokenizer,
+        max_len,
+        return_overflowing_tokens,
+        stride,
+        pad_to_multiple_of,
+    ):
         self.texts = texts.set_index("id")
         self.df = df
         self.tokenizer = tokenizer
         self.max_len = max_len
+        self.return_overflowing_tokens = return_overflowing_tokens
         self.stride = stride
         self.pad_to_multiple_of = pad_to_multiple_of
 
@@ -152,7 +162,7 @@ class Feedback2Dataset(Dataset):
                 add_special_tokens=True,
                 padding=True,
                 truncation=True,
-                return_overflowing_tokens=True,
+                return_overflowing_tokens=self.return_overflowing_tokens,
                 return_offsets_mapping=False,
                 max_length=self.max_len,
                 stride=self.stride,

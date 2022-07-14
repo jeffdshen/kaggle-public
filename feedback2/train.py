@@ -233,9 +233,10 @@ def get_feedback2_dataset(dataset, tokenizer, config, shuffle):
         dataset[0],
         dataset[1],
         tokenizer,
-        config["max_len"],
-        config["stride"],
-        config["pad_to_multiple_of"],
+        max_len=config["max_len"],
+        return_overflowing_tokens=config["return_overflowing_tokens"],
+        stride=config["stride"],
+        pad_to_multiple_of=config["pad_to_multiple_of"],
     )
     loader = DataLoader(
         dataset,
