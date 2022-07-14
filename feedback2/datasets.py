@@ -169,6 +169,11 @@ class Feedback2Dataset(Dataset):
                 return_tensors="pt",
                 pad_to_multiple_of=self.pad_to_multiple_of,
             )
+            if not self.return_overflowing_tokens:
+                x = inputs.input_ids
+                inputs["overflow_to_sample_mapping"] = torch.arange(
+                    x.size(0), dtype=torch.long, device=x.device
+                )
 
             targets = get_targets(labels, inputs.overflow_to_sample_mapping)
             return len(examples), inputs, targets, labels
