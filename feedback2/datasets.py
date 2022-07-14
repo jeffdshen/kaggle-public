@@ -158,19 +158,33 @@ class Feedback2Dataset(Dataset):
                 "{}\n{}".format(d_type, d_text)
                 for d_type, d_text in zip(discourse_types, discourse_texts)
             ]
-            inputs = self.tokenizer(
-                discourses,
-                texts,
-                add_special_tokens=True,
-                padding=True,
-                truncation=self.truncation,
-                return_overflowing_tokens=self.return_overflowing_tokens,
-                return_offsets_mapping=False,
-                max_length=self.max_len,
-                stride=self.stride,
-                return_tensors="pt",
-                pad_to_multiple_of=self.pad_to_multiple_of,
-            )
+            try:
+                inputs = self.tokenizer(
+                    discourses,
+                    texts,
+                    add_special_tokens=True,
+                    padding=True,
+                    truncation=self.truncation,
+                    return_overflowing_tokens=self.return_overflowing_tokens,
+                    return_offsets_mapping=False,
+                    max_length=self.max_len,
+                    stride=self.stride,
+                    return_tensors="pt",
+                    pad_to_multiple_of=self.pad_to_multiple_of,
+                )
+            except:
+                inputs = self.tokenizer(
+                    discourses,
+                    add_special_tokens=True,
+                    padding=True,
+                    truncation=True,
+                    return_overflowing_tokens=self.return_overflowing_tokens,
+                    return_offsets_mapping=False,
+                    max_length=self.max_len,
+                    stride=self.stride,
+                    return_tensors="pt",
+                    pad_to_multiple_of=self.pad_to_multiple_of,
+                )
             if not self.return_overflowing_tokens:
                 x = inputs.input_ids
                 inputs["overflow_to_sample_mapping"] = torch.arange(
