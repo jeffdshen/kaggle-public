@@ -123,6 +123,7 @@ class Feedback2Dataset(Dataset):
         df,
         tokenizer,
         max_len,
+        truncation,
         return_overflowing_tokens,
         stride,
         pad_to_multiple_of,
@@ -131,6 +132,7 @@ class Feedback2Dataset(Dataset):
         self.df = df
         self.tokenizer = tokenizer
         self.max_len = max_len
+        self.truncation = truncation
         self.return_overflowing_tokens = return_overflowing_tokens
         self.stride = stride
         self.pad_to_multiple_of = pad_to_multiple_of
@@ -161,7 +163,7 @@ class Feedback2Dataset(Dataset):
                 texts,
                 add_special_tokens=True,
                 padding=True,
-                truncation=True,
+                truncation=self.truncation,
                 return_overflowing_tokens=self.return_overflowing_tokens,
                 return_offsets_mapping=False,
                 max_length=self.max_len,

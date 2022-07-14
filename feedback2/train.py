@@ -234,6 +234,7 @@ def get_feedback2_dataset(dataset, tokenizer, config, shuffle):
         dataset[1],
         tokenizer,
         max_len=config["max_len"],
+        truncation=config["truncation"],
         return_overflowing_tokens=config["return_overflowing_tokens"],
         stride=config["stride"],
         pad_to_multiple_of=config["pad_to_multiple_of"],
