@@ -318,6 +318,7 @@ def get_dataset_splits_for_training(texts, df, config):
 def run(dfs, config, pre_config, wandb):
     config = copy.deepcopy(config)
     wandb.config.update(config)
+    wandb.config.update({"pre_config": pre_config})
     set_seed(config["seed"])
     set_environ()
     print(f"Config: {json.dumps(config, indent=4, sort_keys=True)}")
