@@ -58,8 +58,8 @@ def pretrain(fold, train_dataset, valid_dataset, config):
         output_dir=f"./pre_{fold}",
         overwrite_output_dir=True,
         num_train_epochs=config["num_epochs"],
-        per_device_train_batch_size=config["batch_size"],
-        per_device_eval_batch_size=config["batch_size"],
+        per_device_train_batch_size=config["model_batch_size"],
+        per_device_eval_batch_size=config["model_batch_size"] * config["valid_batch_multiplier"],
         gradient_accumulation_steps=config["gradient_accumulation"],
         load_best_model_at_end=True,
         evaluation_strategy="steps",
@@ -124,13 +124,14 @@ def evaluate(model, device, data_loader, config):
     valid_score_meter = AverageMeter()
 
     model.eval()
+    valid_batch_size = config["model_batch_size"] * config["valid_batch_multiplier"]
     with torch.no_grad():
         for example in data_loader:
             batch_size, example = example[0], example[1:]
             example = to_device(example, device)
 
             loss, scores = forward_backward(
-                model, example, config["model_batch_size"], noop_backward
+                model, example, valid_batch_size, noop_backward
             )
 
             valid_loss_meter.add(loss, batch_size)
@@ -228,7 +229,7 @@ def train_loop(
     return best_meter.min
 
 
-def get_feedback2_dataset(dataset, tokenizer, config, shuffle):
+def get_feedback2_dataset(dataset, tokenizer, config, shuffle, valid):
     dataset = Feedback2Dataset(
         dataset[0],
         dataset[1],
@@ -239,11 +240,15 @@ def get_feedback2_dataset(dataset, tokenizer, config, shuffle):
         stride=config["stride"],
         pad_to_multiple_of=config["pad_to_multiple_of"],
     )
+
+    batch_size = config["batch_size"]
+    if valid:
+        batch_size *= config["valid_batch_multiplier"]
     loader = DataLoader(
         dataset,
         shuffle=shuffle,
         num_workers=4,
-        batch_size=config["batch_size"],
+        batch_size=batch_size,
         collate_fn=dataset.get_collate_fn(),
     )
     return dataset, loader
@@ -254,10 +259,10 @@ def train(fold, train_dataset, valid_dataset, config, wandb):
 
     tokenizer = AutoTokenizer.from_pretrained(config["model_path"])
     _, train_loader = get_feedback2_dataset(
-        train_dataset, tokenizer, config, shuffle=True
+        train_dataset, tokenizer, config, shuffle=True, valid=False
     )
     _, valid_loader = get_feedback2_dataset(
-        valid_dataset, tokenizer, config, shuffle=False
+        valid_dataset, tokenizer, config, shuffle=False, valid=True
     )
 
     print(f"Loading model: {config['model_path']}")
