@@ -333,7 +333,7 @@ def run(dfs, config, pre_config, wandb):
         best_scores.append(best_score)
         if pre_config is not None:
             shutil.rmtree(f"./pre_{fold}")
-    best_scores = np.array(best_score)
+    best_scores = np.array(best_scores)
     cv_best = np.average(best_scores)
     print(f"Best: {best_scores}")
     print(f"Avg cv: {cv_best}")
