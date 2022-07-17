@@ -23,6 +23,10 @@ def get_texts_df(dir_path):
     return pd.DataFrame(texts, columns=["id", "text"])
 
 
+def df_filter(df1, df2, col1, col2):
+    return df1[~df1[col1].isin(df2[col2])].reset_index(drop=True)
+
+
 def get_dfs(path, path2):
     path = Path(path)
     path2 = Path(path2)
@@ -46,6 +50,11 @@ def get_dfs(path, path2):
             },
         },
     }
+    texts2 = dfs["feedback2"]["train"]["texts"]
+    texts1 = dfs["feedback"]["train"]["texts"]
+    df1 = dfs["feedback"]["train"]["df"]
+    dfs["feedback"]["train"]["texts"] = df_filter(texts1, texts2, "id", "id")
+    dfs["feedback"]["train"]["df"] = df_filter(df1, texts2, "essay_id", "id")
     return dfs
 
 
