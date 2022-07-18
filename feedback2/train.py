@@ -239,6 +239,7 @@ def get_feedback2_dataset(dataset, tokenizer, config, shuffle, valid):
         return_overflowing_tokens=config["return_overflowing_tokens"],
         stride=config["stride"],
         pad_to_multiple_of=config["pad_to_multiple_of"],
+        normalize_text=config["normalize_text"],
     )
 
     batch_size = config["batch_size"]

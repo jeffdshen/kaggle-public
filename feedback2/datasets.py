@@ -125,6 +125,20 @@ def get_targets(labels, overflow_to_sample):
     return labels[overflow_to_sample]
 
 
+def reencode(text):
+    try:
+        return text.encode("latin1").decode("cp1252")
+    except:
+        return text
+
+
+def normalize(df, col):
+    df = df.copy(deep=True)
+    df[col] = df[col].map(reencode)
+    df[col] = df[col].str.replace("\xa0", " ", regex=False)
+    return df
+
+
 class Feedback2Dataset(Dataset):
     def __init__(
         self,
@@ -136,6 +150,7 @@ class Feedback2Dataset(Dataset):
         return_overflowing_tokens,
         stride,
         pad_to_multiple_of,
+        normalize_text,
     ):
         self.texts = texts.set_index("id")
         self.df = df
@@ -145,6 +160,10 @@ class Feedback2Dataset(Dataset):
         self.return_overflowing_tokens = return_overflowing_tokens
         self.stride = stride
         self.pad_to_multiple_of = pad_to_multiple_of
+
+        if normalize_text:
+            self.texts = normalize(self.texts, "text")
+            self.df = normalize(self.df, "discourse_text")
 
     def __len__(self):
         return len(self.df)
