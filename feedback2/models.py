@@ -33,6 +33,21 @@ class FF(nn.Module):
         return x
 
 
+def softmax_pred(z, x):
+    z = z.tolist()
+    overflow_to_sample = x.overflow_to_sample_mapping.tolist()
+    sample_to_scores = defaultdict(list)
+    for i, m in enumerate(overflow_to_sample):
+        sample_to_scores[m].append(z[i])
+
+    preds = []
+    for i in range(len(sample_to_scores)):
+        scores = np.mean(sample_to_scores[i], axis=0)
+        pred = softmax(scores, axis=-1)
+        preds.append(pred)
+    return preds
+
+
 class ClassTokenHead(nn.Module):
     def __init__(self, dim, ff_dim, output_dim, weight=None, ignore_idx=-1):
         super().__init__()
@@ -50,22 +65,40 @@ class ClassTokenHead(nn.Module):
 
     @staticmethod
     def get_pred(z, x):
-        z = z.tolist()
-        overflow_to_sample = x.overflow_to_sample_mapping.tolist()
-        sample_to_scores = defaultdict(list)
-        for i, m in enumerate(overflow_to_sample):
-            sample_to_scores[m].append(z[i])
-        
-        preds = []
-        for i in range(len(sample_to_scores)):
-            scores = np.mean(sample_to_scores[i], axis=0)
-            pred = softmax(scores, axis=-1)
-            preds.append(pred)
-        return preds
+        return softmax_pred(z, x)
+
+
+class ClassTokenBmplHead(nn.Module):
+    def __init__(self, dim, ff_dim, output_dim, bmpl_alpha, weight=None, ignore_idx=-1):
+        super().__init__()
+        self.ff = FF(dim, ff_dim, output_dim)
+        weight = torch.tensor(weight, dtype=torch.float) if weight is not None else None
+        self.loss = nn.CrossEntropyLoss(weight=weight, ignore_index=ignore_idx)
+        self.ignore_idx = ignore_idx
+        self.bmpl_alpha = bmpl_alpha
+
+    def forward(self, x, mask):
+        x = self.ff(x[:, 0])
+        return x
+
+    def get_loss(self, z, y, x):
+        lp = -F.log_softmax(z.detach(), dim=-1)
+        p = F.softmax(z.detach(), dim=-1)
+        lq = -torch.log(y)
+        r = lp - lq
+        r = torch.sigmoid((4 / self.bmpl_alpha) * r) * self.bmpl_alpha
+
+        return self.loss(z, p * r)
+
+    @staticmethod
+    def get_pred(z, x):
+        return softmax_pred(z, x)
 
 
 class Feedback2Model(nn.Module):
-    def __init__(self, path, head, max_labels, dropout=None, weight=None):
+    def __init__(
+        self, path, head, max_labels, dropout=None, weight=None, bmpl_alpha=1.0
+    ):
         super().__init__()
         if dropout is None:
             self.roberta = AutoModel.from_pretrained(path)
@@ -81,6 +114,14 @@ class Feedback2Model(nn.Module):
         if head == "class_token":
             self.head = ClassTokenHead(
                 hidden_size, hidden_size, output_dim=max_labels, weight=weight
+            )
+        elif head == "bmpl":
+            self.head = ClassTokenBmplHead(
+                hidden_size,
+                hidden_size,
+                output_dim=max_labels,
+                weight=weight,
+                bmpl_alpha=bmpl_alpha,
             )
         else:
             raise RuntimeError("Unknown model head")

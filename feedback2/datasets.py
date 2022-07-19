@@ -38,7 +38,9 @@ def get_dfs(path, path2):
             },
             "test": {
                 "texts": get_texts_df(path2 / "test"),
-                "df": pd.read_csv(path2 / "test.csv"),
+                "df": pd.read_csv(path2 / "test.csv").assign(
+                    discourse_effectiveness="Ineffective"
+                ),
             },
         },
         "feedback": {
@@ -119,10 +121,18 @@ MAX_LABELS = len(LABELS)
 LABEL_TO_ID = {t: i for i, t in enumerate(LABELS)}
 
 
-def get_targets(labels, overflow_to_sample):
-    labels = [LABEL_TO_ID[label] for label in labels]
-    labels = overflow_to_sample.new_tensor(labels)
+def get_targets(labels, overflow_to_sample, soft):
+    if not soft:
+        labels = [LABEL_TO_ID[label] for label in labels]
+        labels = overflow_to_sample.new_tensor(labels)
+    else:
+        labels = np.array(labels)
+        labels = overflow_to_sample.new_tensor(labels, dtype=torch.float)
     return labels[overflow_to_sample]
+
+
+def get_hard_labels(labels):
+    return np.array(LABELS)[np.argmax(labels, axis=-1)].tolist()
 
 
 def reencode(text):
@@ -151,6 +161,7 @@ class Feedback2Dataset(Dataset):
         stride,
         pad_to_multiple_of,
         normalize_text,
+        label_df=None,
     ):
         self.texts = texts.set_index("id")
         self.df = df
@@ -161,6 +172,7 @@ class Feedback2Dataset(Dataset):
         self.stride = stride
         self.pad_to_multiple_of = pad_to_multiple_of
 
+        self.label_df = None if label_df is None else label_df.set_index("discourse_id")
         if normalize_text:
             self.texts = normalize(self.texts, "text")
             self.df = normalize(self.df, "discourse_text")
@@ -169,12 +181,20 @@ class Feedback2Dataset(Dataset):
         return len(self.df)
 
     def __getitem__(self, idx):
-        text_id, discourse_text, discourse_type, label = self.df.loc[
+        discourse_id, text_id, discourse_text, discourse_type, label = self.df.loc[
             idx,
-            ["essay_id", "discourse_text", "discourse_type", "discourse_effectiveness"],
+            [
+                "discourse_id",
+                "essay_id",
+                "discourse_text",
+                "discourse_type",
+                "discourse_effectiveness",
+            ],
         ]
 
         text = self.texts.loc[text_id, "text"]
+        if self.label_df is not None:
+            label = self.label_df.loc[discourse_id, LABELS].to_numpy()
         return text, discourse_text, discourse_type, label
 
     def get_collate_fn(self):
@@ -219,7 +239,10 @@ class Feedback2Dataset(Dataset):
                     x.size(0), dtype=torch.long, device=x.device
                 )
 
-            targets = get_targets(labels, inputs.overflow_to_sample_mapping)
+            soft = self.label_df is not None
+            targets = get_targets(labels, inputs.overflow_to_sample_mapping, soft)
+            if soft:
+                labels = get_hard_labels(labels)
             return len(examples), inputs, targets, labels
 
         return collate_fn

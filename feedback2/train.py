@@ -54,12 +54,13 @@ def pretrain(fold, train_dataset, valid_dataset, config):
         tokenizer=tokenizer, mlm=True, mlm_probability=config["mlm_prob"]
     )
 
+    valid_batch_size = config["model_batch_size"] * config["valid_batch_multiplier"]
     training_args = TrainingArguments(
         output_dir=f"./pre_{fold}",
         overwrite_output_dir=True,
         num_train_epochs=config["num_epochs"],
         per_device_train_batch_size=config["model_batch_size"],
-        per_device_eval_batch_size=config["model_batch_size"] * config["valid_batch_multiplier"],
+        per_device_eval_batch_size=valid_batch_size,
         gradient_accumulation_steps=config["gradient_accumulation"],
         load_best_model_at_end=True,
         evaluation_strategy="steps",
@@ -240,6 +241,7 @@ def get_feedback2_dataset(dataset, tokenizer, config, shuffle, valid):
         stride=config["stride"],
         pad_to_multiple_of=config["pad_to_multiple_of"],
         normalize_text=config["normalize_text"],
+        label_df=dataset[2],
     )
 
     batch_size = config["batch_size"]
@@ -273,6 +275,7 @@ def train(fold, train_dataset, valid_dataset, config, wandb):
         MAX_LABELS,
         dropout=config["dropout"],
         weight=config["weight"],
+        bmpl_alpha=config["bmpl_alpha"],
     )
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = model.to(device)
@@ -304,7 +307,17 @@ def train(fold, train_dataset, valid_dataset, config, wandb):
     )
 
 
-def get_dataset_splits_for_training(texts, df, config):
+def get_dataset_splits_for_training(dfs, config, label_dfs):
+    texts = dfs[config["dataset"]]["texts"]
+    df = dfs[config["dataset"]]["df"]
+    if config["label_df"] is None:
+        unlabeled_ds = None
+    else:
+        unlabeled_ds = (
+            dfs[config["unlabeled_dataset"]]["texts"],
+            dfs[config["unlabeled_dataset"]]["df"],
+            label_dfs[config["label_df"]],
+        )
     datasets = []
     kf = ShuffleSplit(
         n_splits=config["folds"],
@@ -316,12 +329,15 @@ def get_dataset_splits_for_training(texts, df, config):
         valid_text = texts.iloc[valid_index].reset_index(drop=True)
         train_df = df[df["essay_id"].isin(train_text["id"])].reset_index(drop=True)
         valid_df = df[df["essay_id"].isin(valid_text["id"])].reset_index(drop=True)
-        datasets.append(((train_text, train_df), (valid_text, valid_df)))
+        train_dataset = (
+            (train_text, train_df, None) if unlabeled_ds is None else unlabeled_ds
+        )
+        datasets.append(train_dataset, (valid_text, valid_df, None))
 
     return datasets
 
 
-def run(dfs, config, pre_config, wandb):
+def run(dfs, label_dfs, config, pre_config, wandb):
     config = copy.deepcopy(config)
     wandb.config.update(config)
     wandb.config.update({"pre_config": pre_config})
@@ -329,7 +345,8 @@ def run(dfs, config, pre_config, wandb):
     set_environ()
     print(f"Config: {json.dumps(config, indent=4, sort_keys=True)}")
     print(f"Pre-config: {json.dumps(pre_config, indent=4, sort_keys=True)}")
-    datasets = get_dataset_splits_for_training(dfs["texts"], dfs["df"], config)
+
+    datasets = get_dataset_splits_for_training(dfs, config, label_dfs)
 
     best_scores = []
     for fold, (train_dataset, valid_dataset) in enumerate(datasets):

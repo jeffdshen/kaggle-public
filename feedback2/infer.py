@@ -42,7 +42,7 @@ def predict(dfs, path, config):
     tokenizer = AutoTokenizer.from_pretrained(config["model_path"])
 
     test_dataset, test_loader = get_feedback2_dataset(
-        [dfs["text"], dfs["df"]], tokenizer, config, shuffle=False, valid=True
+        (dfs["text"], dfs["df"], None), tokenizer, config, shuffle=False, valid=True
     )
 
     predictions = []
