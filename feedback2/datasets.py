@@ -46,9 +46,9 @@ def get_dfs(path, path2):
         "feedback": {
             "train": {
                 "texts": get_texts_df(path / "train"),
-                "df": pd.read_csv(path / "train.csv").rename(
-                    columns={"id": "essay_id"}
-                ),
+                "df": pd.read_csv(path / "train.csv")
+                .rename(columns={"id": "essay_id"})
+                .assign(discourse_effectiveness="Ineffective"),
             },
         },
     }
