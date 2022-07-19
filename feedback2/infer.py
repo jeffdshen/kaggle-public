@@ -1,6 +1,8 @@
 import os
 import gc
 
+from tqdm import tqdm
+
 import torch
 import torch.cuda.amp as amp
 from torch.utils.data import DataLoader
@@ -49,7 +51,7 @@ def predict(dfs, path, config):
     model.eval()
     valid_batch_size = config["model_batch_size"] * config["valid_batch_multiplier"]
     with torch.no_grad():
-        for example in test_loader:
+        for example in tqdm(test_loader):
             batch_size, example = example[0], example[1:]
             example = to_device(example, device)
 
@@ -74,3 +76,11 @@ def get_submission(dfs, preds_batch):
 
     sub = pd.DataFrame(sub, columns=["discourse_id"] + LABELS)
     return sub
+
+
+def ensemble(preds, weights):
+    pred_weights = [(v, weights[k]) for k, v in preds.items()]
+    preds, weights = zip(*pred_weights)
+    preds = np.array(preds)
+    weights = np.array(weights) / np.sum(weights)
+    return np.average(preds, axis=0, weights=weights)
