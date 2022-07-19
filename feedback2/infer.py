@@ -55,9 +55,8 @@ def predict(dfs, path, config):
             batch_size, example = example[0], example[1:]
             example = to_device(example, device)
 
-            with amp.autocast():
-                pred = get_preds(model, example, valid_batch_size)
-                predictions += pred
+            pred = get_preds(model, example, valid_batch_size)
+            predictions += pred
 
     return predictions
 
