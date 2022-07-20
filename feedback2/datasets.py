@@ -60,6 +60,14 @@ def get_dfs(path, path2):
     return dfs
 
 
+def get_label_dfs(path):
+    path = Path(path)
+    label_dfs = {}
+    for f in path.glob("*.csv"):
+        label_dfs[f.name] = pd.read_csv(f)
+    return label_dfs
+
+
 def get_block_dataset(df, text_column, tokenizer, max_len, seed):
     if max_len is None:
         max_len = tokenizer.model_max_length
