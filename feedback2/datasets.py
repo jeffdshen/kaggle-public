@@ -31,32 +31,28 @@ def get_dfs(path, path2):
     path = Path(path)
     path2 = Path(path2)
     dfs = {
-        "feedback2": {
-            "train": {
-                "texts": get_texts_df(path2 / "train"),
-                "df": pd.read_csv(path2 / "train.csv"),
-            },
-            "test": {
-                "texts": get_texts_df(path2 / "test"),
-                "df": pd.read_csv(path2 / "test.csv").assign(
-                    discourse_effectiveness="Ineffective"
-                ),
-            },
+        "feedback2_train": {
+            "texts": get_texts_df(path2 / "train"),
+            "df": pd.read_csv(path2 / "train.csv"),
         },
-        "feedback": {
-            "train": {
-                "texts": get_texts_df(path / "train"),
-                "df": pd.read_csv(path / "train.csv")
-                .rename(columns={"id": "essay_id"})
-                .assign(discourse_effectiveness="Ineffective"),
-            },
+        "feedback2_test": {
+            "texts": get_texts_df(path2 / "test"),
+            "df": pd.read_csv(path2 / "test.csv").assign(
+                discourse_effectiveness="Ineffective"
+            ),
+        },
+        "feedback_train": {
+            "texts": get_texts_df(path / "train"),
+            "df": pd.read_csv(path / "train.csv")
+            .rename(columns={"id": "essay_id"})
+            .assign(discourse_effectiveness="Ineffective"),
         },
     }
-    texts2 = dfs["feedback2"]["train"]["texts"]
-    texts1 = dfs["feedback"]["train"]["texts"]
-    df1 = dfs["feedback"]["train"]["df"]
-    dfs["feedback"]["train"]["texts"] = df_filter(texts1, texts2, "id", "id")
-    dfs["feedback"]["train"]["df"] = df_filter(df1, texts2, "essay_id", "id")
+    texts2 = dfs["feedback2_train"]["texts"]
+    texts1 = dfs["feedback_train"]["texts"]
+    df1 = dfs["feedback_train"]["df"]
+    dfs["feedback_train"]["texts"] = df_filter(texts1, texts2, "id", "id")
+    dfs["feedback_train"]["df"] = df_filter(df1, texts2, "essay_id", "id")
     return dfs
 
 

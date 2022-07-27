@@ -310,28 +310,27 @@ def train(fold, train_dataset, valid_dataset, config, wandb):
 def get_dataset_splits_for_training(dfs, config, label_dfs):
     texts = dfs[config["dataset"]]["texts"]
     df = dfs[config["dataset"]]["df"]
-    if config["label_df"] is None:
-        unlabeled_ds = None
-    else:
-        unlabeled_ds = (
-            dfs[config["unlabeled_dataset"]]["texts"],
-            dfs[config["unlabeled_dataset"]]["df"],
-            label_dfs[config["label_df"]],
-        )
+
     datasets = []
     kf = ShuffleSplit(
         n_splits=config["folds"],
         test_size=config["mini_val"],
         random_state=config["kf_seed"],
     )
-    for train_index, valid_index in kf.split(texts):
+    for fold, (train_index, valid_index) in enumerate(kf.split(texts)):
         train_text = texts.iloc[train_index].reset_index(drop=True)
         valid_text = texts.iloc[valid_index].reset_index(drop=True)
         train_df = df[df["essay_id"].isin(train_text["id"])].reset_index(drop=True)
         valid_df = df[df["essay_id"].isin(valid_text["id"])].reset_index(drop=True)
-        train_dataset = (
-            (train_text, train_df, None) if unlabeled_ds is None else unlabeled_ds
-        )
+
+        if config["label_df_fmt"] is None:
+            train_dataset = (train_text, train_df, None)
+        else:
+            train_dataset = (
+                dfs[config["unlabeled_dataset"]]["texts"],
+                dfs[config["unlabeled_dataset"]]["df"],
+                label_dfs[config["label_df_fmt"].format(fold)],
+            )
         datasets.append(train_dataset, (valid_text, valid_df, None))
 
     return datasets
