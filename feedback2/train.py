@@ -331,7 +331,7 @@ def get_dataset_splits_for_training(dfs, config, label_dfs):
                 dfs[config["unlabeled_dataset"]]["df"],
                 label_dfs[config["label_df_fmt"].format(fold)],
             )
-        datasets.append(train_dataset, (valid_text, valid_df, None))
+        datasets.append((train_dataset, (valid_text, valid_df, None)))
 
     return datasets
 
