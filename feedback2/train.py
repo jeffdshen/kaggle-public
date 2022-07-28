@@ -25,6 +25,48 @@ from .datasets import get_block_dataset, score, Feedback2Dataset, MAX_LABELS
 from .models import Feedback2Model, get_linear_warmup_power_decay_scheduler, split_batch
 from .stats import EMAMeter, AverageMeter, MinMeter
 
+try:
+    import bitsandbytes as bnb
+except ImportError:
+    pass
+
+
+def register_optimizer(model, config):
+    if config["optimizer"] in ["AdamW8bit"]:
+        bnb.optim.GlobalOptimManager.get_instance().register_parameters(model)
+
+
+def get_optimizer(model, config):
+    if config["optimizer"] == "AdamW":
+        return optim.AdamW(
+            model.parameters(),
+            config["lr"],
+            betas=config["betas"],
+            eps=config["eps"],
+            weight_decay=config["wd"],
+        )
+    elif config["optimizer"] == "AdamW8bit":
+        optimizer = bnb.optim.AdamW8bit(
+            model.parameters(),
+            config["lr"],
+            betas=config["betas"],
+            eps=config["eps"],
+            weight_decay=config["wd"],
+        )
+
+        embs = model.roberta.embeddings
+        for emb_type in ["word", "position", "token_type"]:
+
+            attr_name = f"{emb_type}_embeddings"
+
+            if hasattr(embs, attr_name) and getattr(embs, attr_name) is not None:
+                bnb.optim.GlobalOptimManager.get_instance().override_config(
+                    getattr(embs, attr_name).weight, "optim_bits", 32
+                )
+        return optimizer
+    else:
+        raise RuntimeError("Unknown optimizer")
+
 
 def pretrain(fold, train_dataset, valid_dataset, config):
     print(f"Fold: {fold}")
@@ -38,15 +80,10 @@ def pretrain(fold, train_dataset, valid_dataset, config):
     print(f"Loading model: {config['model_path']}")
     model = AutoModelForMaskedLM.from_pretrained(config["model_path"])
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    register_optimizer(model, config)
     model = model.to(device)
 
-    optimizer = optim.AdamW(
-        model.parameters(),
-        config["lr"],
-        betas=config["betas"],
-        eps=config["eps"],
-        weight_decay=config["wd"],
-    )
+    optimizer = get_optimizer(model, config)
     scheduler = get_linear_warmup_power_decay_scheduler(
         optimizer, config["warmup_steps"], float("inf"), power=-0.5
     )
@@ -278,15 +315,10 @@ def train(fold, train_dataset, valid_dataset, config, wandb):
         bmpl_alpha=config["bmpl_alpha"],
     )
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    register_optimizer(model, config)
     model = model.to(device)
 
-    optimizer = optim.AdamW(
-        model.parameters(),
-        config["lr"],
-        betas=config["betas"],
-        eps=config["eps"],
-        weight_decay=config["wd"],
-    )
+    optimizer = get_optimizer(model, config)
     scheduler = get_linear_warmup_power_decay_scheduler(
         optimizer, config["warmup_steps"], float("inf"), power=-0.5
     )
