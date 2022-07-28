@@ -175,6 +175,7 @@ def evaluate(model, device, data_loader, config):
             valid_loss_meter.add(loss, batch_size)
             valid_score_meter.add(scores, batch_size)
 
+    model.train()
     return valid_loss_meter.avg, valid_score_meter.avg
 
 
@@ -213,6 +214,7 @@ def train_loop(
             optimizer.zero_grad()
         step_num += 1
 
+    model.train()
     for epoch in range(config["num_epochs"]):
         print(f"Starting epoch {epoch}")
         for example in train_loader:
