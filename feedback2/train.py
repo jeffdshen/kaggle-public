@@ -314,6 +314,7 @@ def train(fold, train_dataset, valid_dataset, config, wandb):
         MAX_LABELS,
         dropout=config["dropout"],
         weight=config["weight"],
+        gradient_checkpointing=config["gradient_checkpointing"]
         bmpl_alpha=config["bmpl_alpha"],
     )
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

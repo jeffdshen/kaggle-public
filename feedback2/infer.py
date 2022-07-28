@@ -36,7 +36,6 @@ def predict(dfs, path, config):
         config["head"],
         MAX_LABELS,
         dropout=config["dropout"],
-        weight=config["weight"],
     )
     model.load_state_dict(torch.load(path, map_location=device))
     model = model.to(device)

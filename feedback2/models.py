@@ -100,16 +100,26 @@ class ClassTokenBmplHead(nn.Module):
 
 class Feedback2Model(nn.Module):
     def __init__(
-        self, path, head, max_labels, dropout=None, weight=None, bmpl_alpha=1.0
+        self,
+        path,
+        head,
+        max_labels,
+        dropout=None,
+        weight=None,
+        gradient_checkpointing=False,
+        bmpl_alpha=1.0,
     ):
         super().__init__()
         if dropout is None:
-            self.roberta = AutoModel.from_pretrained(path)
+            self.roberta = AutoModel.from_pretrained(
+                path, gradient_checkpointing=gradient_checkpointing
+            )
         else:
             self.roberta = AutoModel.from_pretrained(
                 path,
                 hidden_dropout_prob=dropout,
                 attention_probs_dropout_prob=dropout,
+                gradient_checkpointing=gradient_checkpointing,
             )
 
         config = self.roberta.config
