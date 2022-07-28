@@ -82,6 +82,9 @@ class ClassTokenBmplHead(nn.Module):
         return x
 
     def get_loss(self, z, y, x):
+        if y.dim() < 2:
+            return self.loss(z, y)
+
         lp = -F.log_softmax(z.detach(), dim=-1)
         p = F.softmax(z.detach(), dim=-1)
         lq = -torch.log(y)
