@@ -96,7 +96,7 @@ class SiameseHead(nn.Module):
 
     def forward(self, x, mask):
         x = x[:, 0]
-        x = x.view((2, -1, *x.shape[2:]))
+        x = x.view(2, -1, *x.shape[1:])
         a, b = torch.unbind(x)
         x = a + b
         x = self.ff(x)
