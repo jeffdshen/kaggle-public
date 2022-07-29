@@ -33,7 +33,7 @@ except ImportError:
 
 def register_optimizer(model, config):
     if config["optimizer"] in ["AdamW8bit"]:
-        bnb.optim.GlobalOptimManager.get_instance().register_parameters(model)
+        bnb.optim.GlobalOptimManager.get_instance().register_parameters(model.parameters())
 
 
 def get_optimizer(model, config):
