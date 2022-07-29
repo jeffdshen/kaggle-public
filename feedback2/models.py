@@ -49,7 +49,9 @@ def softmax_pred(z, x):
 
 
 class ClassTokenHead(nn.Module):
-    def __init__(self, dim, ff_dim, output_dim, bmpl_alpha=None, weight=None, ignore_idx=-1):
+    def __init__(
+        self, dim, ff_dim, output_dim, bmpl_alpha=None, weight=None, ignore_idx=-1
+    ):
         super().__init__()
         self.ff = FF(dim, ff_dim, output_dim)
         weight = torch.tensor(weight, dtype=torch.float) if weight is not None else None
@@ -82,7 +84,9 @@ class ClassTokenHead(nn.Module):
 
 
 class SiameseHead(nn.Module):
-    def __init__(self, dim, ff_dim, output_dim, bmpl_alpha=None, weight=None, ignore_idx=-1):
+    def __init__(
+        self, dim, ff_dim, output_dim, bmpl_alpha=None, weight=None, ignore_idx=-1
+    ):
         super().__init__()
         self.ff = FF(dim, ff_dim, output_dim)
         weight = torch.tensor(weight, dtype=torch.float) if weight is not None else None
@@ -131,16 +135,15 @@ class Feedback2Model(nn.Module):
     ):
         super().__init__()
         if dropout is None:
-            self.roberta = AutoModel.from_pretrained(
-                path, gradient_checkpointing=gradient_checkpointing
-            )
+            self.roberta = AutoModel.from_pretrained(path)
         else:
             self.roberta = AutoModel.from_pretrained(
                 path,
                 hidden_dropout_prob=dropout,
                 attention_probs_dropout_prob=dropout,
-                gradient_checkpointing=gradient_checkpointing,
             )
+        if gradient_checkpointing:
+            self.roberta.gradient_checkpointing_enable()
 
         config = self.roberta.config
         hidden_size = config.hidden_size
