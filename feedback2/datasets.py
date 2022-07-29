@@ -166,6 +166,7 @@ class Feedback2Dataset(Dataset):
         pad_to_multiple_of,
         normalize_text,
         label_df=None,
+        siamese=False,
     ):
         self.texts = texts.set_index("id")
         self.df = df
@@ -175,6 +176,7 @@ class Feedback2Dataset(Dataset):
         self.return_overflowing_tokens = return_overflowing_tokens
         self.stride = stride
         self.pad_to_multiple_of = pad_to_multiple_of
+        self.siamese = siamese
 
         self.label_df = None if label_df is None else label_df.set_index("discourse_id")
         if normalize_text:
@@ -201,6 +203,65 @@ class Feedback2Dataset(Dataset):
             label = self.label_df.loc[discourse_id, LABELS].to_numpy()
         return text, discourse_text, discourse_type, label
 
+    def _get_non_siamese_inputs(self, discourses, texts):
+        try:
+            inputs = self.tokenizer(
+                discourses,
+                texts,
+                add_special_tokens=True,
+                padding=True,
+                truncation=self.truncation,
+                return_overflowing_tokens=self.return_overflowing_tokens,
+                return_offsets_mapping=False,
+                max_length=self.max_len,
+                stride=self.stride,
+                return_tensors="pt",
+                pad_to_multiple_of=self.pad_to_multiple_of,
+            )
+        except:
+            inputs = self.tokenizer(
+                discourses,
+                add_special_tokens=True,
+                padding=True,
+                truncation=True,
+                return_overflowing_tokens=self.return_overflowing_tokens,
+                return_offsets_mapping=False,
+                max_length=self.max_len,
+                stride=self.stride,
+                return_tensors="pt",
+                pad_to_multiple_of=self.pad_to_multiple_of,
+            )
+        if not self.return_overflowing_tokens:
+            x = inputs.input_ids
+            inputs["overflow_to_sample_mapping"] = torch.arange(
+                x.size(0), dtype=torch.long, device=x.device
+            )
+        return inputs
+
+    def _get_siamese_inputs(self, discourses, texts):
+        if self.return_overflowing_tokens:
+            raise RuntimeError("siamese with overflowing tokens not allowed")
+        combined = [text for pair in zip(discourses, texts) for text in pair]
+        inputs = self.tokenizer(
+            combined,
+            add_special_tokens=True,
+            padding=True,
+            truncation=self.truncation,
+            return_overflowing_tokens=self.return_overflowing_tokens,
+            return_offsets_mapping=False,
+            max_length=self.max_len,
+            stride=self.stride,
+            return_tensors="pt",
+            pad_to_multiple_of=self.pad_to_multiple_of,
+        )
+        x = inputs.input_ids
+        # HACK: we *do not* repeat_interleave, because this is only used
+        # after the model is applied, in which case z.dim(0) = x.dim(0) // 2
+        inputs["overflow_to_sample_mapping"] = torch.arange(
+            len(discourses), dtype=torch.long, device=x.device
+        )
+        return inputs
+
     def get_collate_fn(self):
         def collate_fn(examples):
             texts, discourse_texts, discourse_types, labels = [
@@ -210,39 +271,12 @@ class Feedback2Dataset(Dataset):
                 "{}\n{}".format(d_type, d_text)
                 for d_type, d_text in zip(discourse_types, discourse_texts)
             ]
-            try:
-                inputs = self.tokenizer(
-                    discourses,
-                    texts,
-                    add_special_tokens=True,
-                    padding=True,
-                    truncation=self.truncation,
-                    return_overflowing_tokens=self.return_overflowing_tokens,
-                    return_offsets_mapping=False,
-                    max_length=self.max_len,
-                    stride=self.stride,
-                    return_tensors="pt",
-                    pad_to_multiple_of=self.pad_to_multiple_of,
-                )
-            except:
-                inputs = self.tokenizer(
-                    discourses,
-                    add_special_tokens=True,
-                    padding=True,
-                    truncation=True,
-                    return_overflowing_tokens=self.return_overflowing_tokens,
-                    return_offsets_mapping=False,
-                    max_length=self.max_len,
-                    stride=self.stride,
-                    return_tensors="pt",
-                    pad_to_multiple_of=self.pad_to_multiple_of,
-                )
-            if not self.return_overflowing_tokens:
-                x = inputs.input_ids
-                inputs["overflow_to_sample_mapping"] = torch.arange(
-                    x.size(0), dtype=torch.long, device=x.device
-                )
 
+            if self.siamese:
+                inputs = self._get_siamese_inputs(discourses, texts)
+            else:
+                inputs = self._get_non_siamese_inputs(discourses, texts) 
+                
             soft = self.label_df is not None
             targets = get_targets(labels, inputs.overflow_to_sample_mapping, soft)
             if soft:

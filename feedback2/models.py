@@ -49,27 +49,7 @@ def softmax_pred(z, x):
 
 
 class ClassTokenHead(nn.Module):
-    def __init__(self, dim, ff_dim, output_dim, weight=None, ignore_idx=-1):
-        super().__init__()
-        self.ff = FF(dim, ff_dim, output_dim)
-        weight = torch.tensor(weight, dtype=torch.float) if weight is not None else None
-        self.loss = nn.CrossEntropyLoss(weight=weight, ignore_index=ignore_idx)
-        self.ignore_idx = ignore_idx
-
-    def forward(self, x, mask):
-        x = self.ff(x[:, 0])
-        return x
-
-    def get_loss(self, z, y, x):
-        return self.loss(z, y)
-
-    @staticmethod
-    def get_pred(z, x):
-        return softmax_pred(z, x)
-
-
-class ClassTokenBmplHead(nn.Module):
-    def __init__(self, dim, ff_dim, output_dim, bmpl_alpha, weight=None, ignore_idx=-1):
+    def __init__(self, dim, ff_dim, output_dim, bmpl_alpha=None, weight=None, ignore_idx=-1):
         super().__init__()
         self.ff = FF(dim, ff_dim, output_dim)
         weight = torch.tensor(weight, dtype=torch.float) if weight is not None else None
@@ -82,6 +62,46 @@ class ClassTokenBmplHead(nn.Module):
         return x
 
     def get_loss(self, z, y, x):
+        if self.bmpl_alpha is None:
+            return self.loss(z, y)
+
+        if y.dim() < 2:
+            return self.loss(z, y)
+
+        lp = -F.log_softmax(z.detach(), dim=-1)
+        p = F.softmax(z.detach(), dim=-1)
+        lq = -torch.log(y)
+        r = lp - lq
+        r = torch.sigmoid((4 / self.bmpl_alpha) * r) * self.bmpl_alpha
+
+        return self.loss(z, p * r)
+
+    @staticmethod
+    def get_pred(z, x):
+        return softmax_pred(z, x)
+
+
+class SiameseHead(nn.Module):
+    def __init__(self, dim, ff_dim, output_dim, bmpl_alpha=None, weight=None, ignore_idx=-1):
+        super().__init__()
+        self.ff = FF(dim, ff_dim, output_dim)
+        weight = torch.tensor(weight, dtype=torch.float) if weight is not None else None
+        self.loss = nn.CrossEntropyLoss(weight=weight, ignore_index=ignore_idx)
+        self.ignore_idx = ignore_idx
+        self.bmpl_alpha = bmpl_alpha
+
+    def forward(self, x, mask):
+        x = x[:, 0]
+        x = x.view(2, -1, x.shape[2:])
+        a, b = torch.unbind(x)
+        x = a + b
+        x = self.ff(x)
+        return x
+
+    def get_loss(self, z, y, x):
+        if self.bmpl_alpha is None:
+            return self.loss(z, y)
+
         if y.dim() < 2:
             return self.loss(z, y)
 
@@ -126,15 +146,19 @@ class Feedback2Model(nn.Module):
         hidden_size = config.hidden_size
         if head == "class_token":
             self.head = ClassTokenHead(
-                hidden_size, hidden_size, output_dim=max_labels, weight=weight
-            )
-        elif head == "bmpl":
-            self.head = ClassTokenBmplHead(
                 hidden_size,
                 hidden_size,
                 output_dim=max_labels,
-                weight=weight,
                 bmpl_alpha=bmpl_alpha,
+                weight=weight,
+            )
+        elif head == "siamese":
+            self.head = SiameseHead(
+                hidden_size,
+                hidden_size,
+                bmpl_alpha=bmpl_alpha,
+                output_dim=max_labels,
+                weight=weight,
             )
         else:
             raise RuntimeError("Unknown model head")

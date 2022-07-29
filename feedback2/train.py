@@ -281,6 +281,7 @@ def get_feedback2_dataset(dataset, tokenizer, config, shuffle, valid):
         pad_to_multiple_of=config["pad_to_multiple_of"],
         normalize_text=config["normalize_text"],
         label_df=dataset[2],
+        siamese=(config["head"] == "siamese"),
     )
 
     batch_size = config["batch_size"]
