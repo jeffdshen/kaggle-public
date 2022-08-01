@@ -385,6 +385,8 @@ def run(dfs, label_dfs, config, pre_config, wandb):
 
     best_scores = []
     for fold, (train_dataset, valid_dataset) in enumerate(datasets):
+        if (config["fold"] is not None) and (fold not in config["fold"]):
+            continue
         if pre_config is not None:
             pretrain(fold, train_dataset[0], valid_dataset[0], pre_config)
             config["model_path"] = f"./pre_{fold}"
