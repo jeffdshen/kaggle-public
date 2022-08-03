@@ -21,7 +21,13 @@ from transformers import (
 from sklearn.model_selection import KFold, ShuffleSplit
 
 from .utils import set_environ, set_seed
-from .datasets import get_block_dataset, score, Feedback2Dataset, MAX_LABELS
+from .datasets import (
+    Feedback2MultiDataset,
+    get_block_dataset,
+    score,
+    Feedback2Dataset,
+    MAX_LABELS,
+)
 from .models import Feedback2Model, get_linear_warmup_power_decay_scheduler, split_batch
 from .stats import EMAMeter, AverageMeter, MinMeter
 
@@ -33,7 +39,9 @@ except ImportError:
 
 def register_optimizer(model, config):
     if config["optimizer"] in ["AdamW8bit"]:
-        bnb.optim.GlobalOptimManager.get_instance().register_parameters(model.parameters())
+        bnb.optim.GlobalOptimManager.get_instance().register_parameters(
+            model.parameters()
+        )
 
 
 def get_optimizer(model, config):
@@ -270,19 +278,30 @@ def train_loop(
 
 
 def get_feedback2_dataset(dataset, tokenizer, config, shuffle, valid):
-    dataset = Feedback2Dataset(
-        dataset[0],
-        dataset[1],
-        tokenizer,
-        max_len=config["max_len"],
-        truncation=config["truncation"],
-        return_overflowing_tokens=config["return_overflowing_tokens"],
-        stride=config["stride"],
-        pad_to_multiple_of=config["pad_to_multiple_of"],
-        normalize_text=config["normalize_text"],
-        label_df=dataset[2],
-        siamese=(config["head"] == "siamese"),
-    )
+    if config["head"] == "multi_token":
+        dataset = Feedback2MultiDataset(
+            dataset[0],
+            dataset[1],
+            tokenizer,
+            max_len=config["max_len"],
+            pad_to_multiple_of=config["pad_to_multiple_of"],
+            normalize_text=config["normalize_text"],
+            label_df=dataset[2],
+        )
+    else:
+        dataset = Feedback2Dataset(
+            dataset[0],
+            dataset[1],
+            tokenizer,
+            max_len=config["max_len"],
+            truncation=config["truncation"],
+            return_overflowing_tokens=config["return_overflowing_tokens"],
+            stride=config["stride"],
+            pad_to_multiple_of=config["pad_to_multiple_of"],
+            normalize_text=config["normalize_text"],
+            label_df=dataset[2],
+            siamese=(config["head"] == "siamese"),
+        )
 
     batch_size = config["batch_size"]
     if valid:
