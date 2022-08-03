@@ -158,6 +158,20 @@ def get_hard_labels(labels):
     return np.array(LABELS)[np.argmax(labels, axis=-1)].tolist()
 
 
+def get_targets_combined(labels, target_mask, soft):
+    device = target_mask.device
+    target_overflow = torch.arange(len(labels), dtype=torch.long, device=device)
+    flat_targets = get_targets(labels, target_overflow, soft)
+    if soft:
+        targets = torch.zeros(
+            *target_mask.size(), MAX_LABELS, dtype=torch.float, device=device
+        )
+    else:
+        targets = torch.zeros(*target_mask.size(), dtype=torch.long, device=device)
+    targets[target_mask.bool()] = flat_targets
+    return targets
+
+
 def overlap(a, b, c, d):
     return a < d and c < b
 
@@ -498,20 +512,19 @@ class Feedback2MultiDataset(Dataset):
                 return_tensors="pt",
                 pad_to_multiple_of=self.pad_to_multiple_of,
             )
-            labels = np.concatenate(labels)
-
-            x = inputs.overflow_to_sample_mapping
-            target_overflow = torch.arange(
-                labels.shape[0], dtype=torch.long, device=x.device
-            )
+            labels = np.concatenate(labels).tolist()
 
             soft = self.label_df is not None
-            targets = get_targets(labels, target_overflow, soft)
+            target_mask = get_target_mask(inputs, offsets)
+            targets = get_targets_combined(labels, target_mask, soft)
+
             if soft:
                 labels = get_hard_labels(labels)
 
-            inputs["target_mask"] = get_target_mask(inputs, offsets)
-            inputs["idxs"] = x.new_tensor([a for idx in idxs for a in idx])
+            inputs["target_mask"] = target_mask
+            inputs["idxs"] = inputs.overflow_to_sample_mapping.new_tensor(
+                [a for idx in idxs for a in idx]
+            )
             return len(examples), inputs, targets, labels
 
         return collate_fn

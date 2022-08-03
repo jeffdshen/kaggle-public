@@ -9,6 +9,7 @@ from .datasets import (
     exact_find,
     get_hard_labels,
     get_target_mask,
+    get_targets_combined,
     make_merged_df,
     make_merged_text,
     overlap,
@@ -49,6 +50,33 @@ class GetTargetsTestCase(unittest.TestCase):
             ]
         )
         targets = get_targets(labels, overflow_to_sample, soft=True)
+        torch.testing.assert_close(targets, expected)
+
+    def test_combined_hard_labels(self):
+        labels = ["Effective", "Ineffective", "Adequate"]
+        target_mask = torch.tensor([[0, 1, 1], [1, 0, 0]])
+        expected = torch.tensor([[0, 2, 0], [1, 0, 0]])
+        targets = get_targets_combined(labels, target_mask, soft=False)
+        torch.testing.assert_close(targets, expected)
+
+    def test_combined_soft_labels(self):
+        labels = torch.tensor([[0.1, 0.2, 0.7], [0.2, 0.3, 0.5], [0.3, 0.4, 0.3]])
+        target_mask = torch.tensor([[1, 0, 0], [0, 1, 1]])
+        expected = torch.tensor(
+            [
+                [
+                    [0.1, 0.2, 0.7],
+                    [0.0, 0.0, 0.0],
+                    [0.0, 0.0, 0.0],
+                ],
+                [
+                    [0.0, 0.0, 0.0],
+                    [0.2, 0.3, 0.5],
+                    [0.3, 0.4, 0.3],
+                ],
+            ]
+        )
+        targets = get_targets_combined(labels, target_mask, soft=True)
         torch.testing.assert_close(targets, expected)
 
 
@@ -218,7 +246,8 @@ class TargetMaskTestCase(unittest.TestCase):
                 [0, 0, 0, 0, 1, 0, 0, 1],
                 [0, 0, 1, 0, 0, 0, 0, 0],
                 [0, 0, 0, 1, 0, 0, 0, 0],
-            ], dtype=torch.long
+            ],
+            dtype=torch.long,
         )
         torch.testing.assert_close(target_mask, expected)
 
