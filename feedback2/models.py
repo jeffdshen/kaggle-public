@@ -156,7 +156,7 @@ class MultiTokenHead(nn.Module):
     def get_pred(z, x):
         z = z.tolist()
         preds = softmax(np.array(z), axis=-1)
-        return preds
+        return preds.tolist()
 
 
 class Feedback2Model(nn.Module):
