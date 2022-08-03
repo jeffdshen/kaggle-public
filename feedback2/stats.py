@@ -27,6 +27,9 @@ class EMAMeter:
         self.__init__(self.weight)
 
     def add(self, avg, count=1):
+        if not np.isfinite(avg):
+            return
+
         batch_inv_count = self.weight**count
         self.sum = self.sum * batch_inv_count + (1 - batch_inv_count) * avg
         self.inv_count = self.inv_count * batch_inv_count
