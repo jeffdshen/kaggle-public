@@ -28,7 +28,7 @@ def df_filter(df1, df2, col1, col2):
 
 
 def get_dfs(path, path2):
-    path = Path(path)
+    path = Path(path) if path is not None else None
     path2 = Path(path2)
     dfs = {
         "feedback2_train": {
@@ -41,13 +41,18 @@ def get_dfs(path, path2):
                 discourse_effectiveness="Ineffective"
             ),
         },
-        "feedback_train": {
-            "texts": get_texts_df(path / "train"),
-            "df": pd.read_csv(path / "train.csv")
-            .rename(columns={"id": "essay_id"})
-            .assign(discourse_effectiveness="Ineffective"),
-        },
     }
+
+    if path is None:
+        return dfs
+
+    dfs["feedback_train"] = {
+        "texts": get_texts_df(path / "train"),
+        "df": pd.read_csv(path / "train.csv")
+        .rename(columns={"id": "essay_id"})
+        .assign(discourse_effectiveness="Ineffective"),
+    }
+
     texts2 = dfs["feedback2_train"]["texts"]
     texts1 = dfs["feedback_train"]["texts"]
     df1 = dfs["feedback_train"]["df"]
@@ -118,6 +123,20 @@ DISCOURSE_TYPES = [
 
 MAX_DISCOURSE_TYPES = len(DISCOURSE_TYPES)
 DISCOURSE_TYPE_TO_ID = {t: i for i, t in enumerate(DISCOURSE_TYPES)}
+DISCOURSE_TYPE_CODE = [
+    "lead",
+    "position",
+    "evidence",
+    "claim",
+    "conclusion",
+    "counterclaim",
+    "rebuttal",
+]
+START_LEFT = "<"
+START_RIGHT = ">"
+END_LEFT = "</"
+END_RIGHT = ">"
+
 
 LABELS = ["Ineffective", "Adequate", "Effective"]
 
@@ -139,6 +158,37 @@ def get_hard_labels(labels):
     return np.array(LABELS)[np.argmax(labels, axis=-1)].tolist()
 
 
+def overlap(a, b, c, d):
+    return a < d and c < b
+
+
+def get_target_mask(inputs, offsets_batch):
+    target_masks = []
+    idxs = defaultdict(int)
+    for tokens, sample in zip(
+        inputs.offset_mapping.tolist(), inputs.overflow_to_sample_mapping.tolist()
+    ):
+        target_mask = []
+        for token in tokens:
+            idx = idxs[sample]
+            offsets = offsets_batch[sample]
+            if idx >= len(offsets):
+                target_mask.append(0)
+                continue
+
+            offset = offsets[idx]
+            if not overlap(token[0], token[1], offset[0], offset[1]):
+                target_mask.append(0)
+                continue
+
+            target_mask.append(1)
+            idxs[sample] += 1
+
+        target_masks.append(target_mask)
+    target_masks = inputs.overflow_to_sample_mapping.new_tensor(target_masks)
+    return target_masks
+
+
 def reencode(text):
     try:
         return text.encode("latin1").decode("cp1252")
@@ -150,6 +200,7 @@ def normalize(df, col):
     df = df.copy(deep=True)
     df[col] = df[col].map(reencode)
     df[col] = df[col].str.replace("\xa0", " ", regex=False)
+    df[col] = df[col].str.strip()
     return df
 
 
@@ -275,12 +326,185 @@ class Feedback2Dataset(Dataset):
             if self.siamese:
                 inputs = self._get_siamese_inputs(discourses, texts)
             else:
-                inputs = self._get_non_siamese_inputs(discourses, texts) 
-                
+                inputs = self._get_non_siamese_inputs(discourses, texts)
+
             soft = self.label_df is not None
             targets = get_targets(labels, inputs.overflow_to_sample_mapping, soft)
             if soft:
                 labels = get_hard_labels(labels)
+            return len(examples), inputs, targets, labels
+
+        return collate_fn
+
+
+def exact_find(text, sub):
+    sub = sub.strip()
+    start = text.find(sub)
+    if start == -1:
+        return -1, -1
+    end = start + len(sub)
+    return start, end
+
+
+def find_split(sections, d_text, d_id, find):
+    found = False
+    next_sections = []
+    for section, key in sections:
+        if found or key is not None:
+            next_sections.append((section, key))
+            continue
+        start, end = find(section, d_text)
+        if start == -1:
+            next_sections.append((section, key))
+            continue
+
+        found = True
+        if start > 0:
+            next_sections.append((section[:start], key))
+        next_sections.append((section[start:end], d_id))
+        if end < len(section):
+            next_sections.append((section[end:], key))
+
+    return next_sections, found
+
+
+def make_merged_text(text, d_ids, d_texts, d_types, d_labels):
+    sections = [(text, None)]
+    d_items = list(zip(d_ids, d_texts, d_types, d_labels))
+    d_map = {x[0]: x for x in d_items}
+    d_items.sort(key=lambda x: len(x[1]), reverse=True)
+
+    err = False
+    for d_id, d_text, _, _ in d_items:
+        sections, found = find_split(sections, d_text, d_id, exact_find)
+        if not found:
+            sections.append((d_text, d_id))
+            err = True
+
+    merged = []
+    offsets = []
+    d_ids = []
+    d_labels = []
+    for section, key in sections:
+        if key is None:
+            merged += section
+            continue
+
+        d_id, _, d_type, d_label = d_map[key]
+
+        merged += START_LEFT
+        d_code = DISCOURSE_TYPE_CODE[DISCOURSE_TYPE_TO_ID[d_type]]
+        offsets.append((len(merged), len(merged) + len(d_code)))
+        merged += d_code + START_RIGHT
+        merged += section
+        merged += END_LEFT + d_code + END_RIGHT
+
+        d_ids.append(d_id)
+        d_labels.append(d_label)
+
+    offsets, d_ids, d_labels = zip(*sorted(zip(offsets, d_ids, d_labels)))
+    return "".join(merged), offsets, d_ids, d_labels
+
+
+def make_merged_df(texts, df, label_df=None):
+    df = df.groupby(["essay_id"]).agg(list)
+    label_df = None if label_df is None else label_df.set_index("discourse_id")
+    records = []
+    for i in range(len(texts)):
+        essay_id, text = texts.loc[i, ["id", "text"]]
+        d_ids, d_texts, d_types, d_labels = df.loc[
+            essay_id,
+            [
+                "discourse_id",
+                "discourse_text",
+                "discourse_type",
+                "discourse_effectiveness",
+            ],
+        ]
+        if label_df is not None:
+            d_labels = label_df.loc[d_ids, LABELS].to_numpy().tolist()
+        merged, offsets, ids, labels = make_merged_text(
+            text, d_ids, d_texts, d_types, d_labels
+        )
+        records.append(
+            {
+                "essay_id": essay_id,
+                "text": merged,
+                "offsets": offsets,
+                "discourse_ids": ids,
+                "labels": labels,
+            }
+        )
+    return pd.DataFrame.from_records(records)
+
+
+class Feedback2MultiDataset(Dataset):
+    def __init__(
+        self,
+        texts,
+        df,
+        tokenizer,
+        max_len,
+        pad_to_multiple_of,
+        normalize_text,
+        label_df=None,
+    ):
+        if normalize_text:
+            texts = normalize(texts, "text")
+            df = normalize(df, "discourse_text")
+
+        self.label_df = label_df
+        self.df = make_merged_df(texts, df, label_df)
+        self.tokenizer = tokenizer
+        self.max_len = max_len
+        self.pad_to_multiple_of = pad_to_multiple_of
+
+    def __len__(self):
+        return len(self.df)
+
+    def __getitem__(self, idx):
+        text, offsets, discourse_ids, labels = self.df.loc[
+            idx,
+            [
+                "text",
+                "offsets",
+                "discourse_ids",
+                "labels",
+            ],
+        ]
+
+        return text, offsets, discourse_ids, labels
+
+    def get_collate_fn(self):
+        def collate_fn(examples):
+            texts, offsets, discourse_ids, labels = [list(a) for a in zip(*examples)]
+
+            inputs = self.tokenizer(
+                texts,
+                add_special_tokens=True,
+                padding=True,
+                truncation=False,
+                return_overflowing_tokens=True,
+                return_offsets_mapping=True,
+                max_length=self.max_len,
+                stride=0,
+                return_tensors="pt",
+                pad_to_multiple_of=self.pad_to_multiple_of,
+            )
+            labels = np.concatenate(labels)
+
+            x = inputs.overflow_to_sample_mapping
+            target_overflow = torch.arange(
+                labels.shape[0], dtype=torch.long, device=x.device
+            )
+
+            soft = self.label_df is not None
+            targets = get_targets(labels, target_overflow, soft)
+            if soft:
+                labels = get_hard_labels(labels)
+
+            inputs["target_mask"] = get_target_mask(inputs, offsets)
+            inputs["discourse_ids"] = x.new_tensor(discourse_ids)
             return len(examples), inputs, targets, labels
 
         return collate_fn

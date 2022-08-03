@@ -122,6 +122,43 @@ class SiameseHead(nn.Module):
         return softmax_pred(z, x)
 
 
+class MultiTokenHead(nn.Module):
+    def __init__(
+        self, dim, ff_dim, output_dim, bmpl_alpha=None, weight=None, ignore_idx=-1
+    ):
+        super().__init__()
+        self.ff = FF(dim, ff_dim, output_dim)
+        weight = torch.tensor(weight, dtype=torch.float) if weight is not None else None
+        self.loss = nn.CrossEntropyLoss(weight=weight, ignore_index=ignore_idx)
+        self.ignore_idx = ignore_idx
+        self.bmpl_alpha = bmpl_alpha
+
+    def forward(self, x, mask):
+        x = self.ff(x[mask.bool()])
+        return x
+
+    def get_loss(self, z, y, x):
+        if self.bmpl_alpha is None:
+            return self.loss(z, y)
+
+        if y.dim() < 2:
+            return self.loss(z, y)
+
+        lp = -F.log_softmax(z.detach(), dim=-1)
+        p = F.softmax(z.detach(), dim=-1)
+        lq = -torch.log(y)
+        r = lp - lq
+        r = torch.sigmoid((4 / self.bmpl_alpha) * r) * self.bmpl_alpha
+
+        return self.loss(z, p * r)
+
+    @staticmethod
+    def get_pred(z, x):
+        z = z.tolist()
+        preds = softmax(np.array(z), axis=-1)
+        return preds
+
+
 class Feedback2Model(nn.Module):
     def __init__(
         self,
@@ -163,6 +200,14 @@ class Feedback2Model(nn.Module):
                 output_dim=max_labels,
                 weight=weight,
             )
+        elif head == "multi_token":
+            self.head = MultiTokenHead(
+                hidden_size,
+                hidden_size,
+                bmpl_alpha=bmpl_alpha,
+                output_dim=max_labels,
+                weight=weight,
+            )
         else:
             raise RuntimeError("Unknown model head")
 
@@ -174,8 +219,12 @@ class Feedback2Model(nn.Module):
             for k, v in x.items()
             if k not in {"offset_mapping", "overflow_to_sample_mapping"}
         }
+        target_mask = x["target_mask"] if "target_mask" in x else None
         x = self.roberta(**x)[0]
-        x = self.head(x, mask)
+        if target_mask is None:
+            x = self.head(x, mask)
+        else:
+            x = self.head(x, target_mask)
         return x
 
     def get_loss(self, z, y, x):
