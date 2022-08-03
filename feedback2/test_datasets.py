@@ -107,6 +107,7 @@ class MergeTestCase(unittest.TestCase):
                 "text": "The <lead>quick brown</lead> fox <claim>jumps</claim> over the <rebuttal>lazy dog</rebuttal>",
                 "offsets": ((5, 9), (34, 39), (64, 72)),
                 "discourse_ids": ("a", "b", "c"),
+                "idxs": (0, 1, 2),
                 "labels": ("Ineffective", "Effective", "Adequate"),
             }
         ]
@@ -141,6 +142,7 @@ class MergeTestCase(unittest.TestCase):
                 "text": "The <lead>quick brown</lead> fox <claim>jumps</claim> over the <rebuttal>lazy dog</rebuttal>",
                 "offsets": ((5, 9), (34, 39), (64, 72)),
                 "discourse_ids": ("a", "b", "c"),
+                "idxs": (0, 1, 2),
                 "labels": (
                     [0.2, 0.5, 0.3],
                     [0.4, 0.4, 0.2],

@@ -407,6 +407,8 @@ def make_merged_text(text, d_ids, d_texts, d_types, d_labels):
 
 
 def make_merged_df(texts, df, label_df=None):
+    idx_map = {k: v for v, k in enumerate(df["discourse_id"])}
+
     df = df.groupby(["essay_id"]).agg(list)
     label_df = None if label_df is None else label_df.set_index("discourse_id")
     records = []
@@ -426,12 +428,14 @@ def make_merged_df(texts, df, label_df=None):
         merged, offsets, ids, labels = make_merged_text(
             text, d_ids, d_texts, d_types, d_labels
         )
+        idxs = tuple(idx_map[idx] for idx in ids)
         records.append(
             {
                 "essay_id": essay_id,
                 "text": merged,
                 "offsets": offsets,
                 "discourse_ids": ids,
+                "idxs": idxs,
                 "labels": labels,
             }
         )
@@ -463,27 +467,30 @@ class Feedback2MultiDataset(Dataset):
         return len(self.df)
 
     def __getitem__(self, idx):
-        text, offsets, discourse_ids, labels = self.df.loc[
+        text, offsets, discourse_ids, idxs, labels = self.df.loc[
             idx,
             [
                 "text",
                 "offsets",
                 "discourse_ids",
+                "idxs",
                 "labels",
             ],
         ]
 
-        return text, offsets, discourse_ids, labels
+        return text, offsets, discourse_ids, idxs, labels
 
     def get_collate_fn(self):
         def collate_fn(examples):
-            texts, offsets, discourse_ids, labels = [list(a) for a in zip(*examples)]
+            texts, offsets, discourse_ids, idxs, labels = [
+                list(a) for a in zip(*examples)
+            ]
 
             inputs = self.tokenizer(
                 texts,
                 add_special_tokens=True,
                 padding=True,
-                truncation=False,
+                truncation=True,
                 return_overflowing_tokens=True,
                 return_offsets_mapping=True,
                 max_length=self.max_len,
@@ -504,7 +511,7 @@ class Feedback2MultiDataset(Dataset):
                 labels = get_hard_labels(labels)
 
             inputs["target_mask"] = get_target_mask(inputs, offsets)
-            inputs["discourse_ids"] = x.new_tensor(discourse_ids)
+            inputs["idxs"] = x.new_tensor([a for idx in idxs for a in idx])
             return len(examples), inputs, targets, labels
 
         return collate_fn

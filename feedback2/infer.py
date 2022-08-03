@@ -26,8 +26,8 @@ def get_preds(model, example, model_batch_size):
     z_batch = torch.cat(z_chunks)
 
     pred = model.get_pred(z_batch, x_batch)
-    if "discourse_ids" in x_batch:
-        pred = list(zip(pred, x_batch.discourse_ids.tolist()))
+    if "idxs" in x_batch:
+        pred = list(zip(pred, x_batch.idxs.tolist()))
     return pred
 
 
@@ -62,7 +62,7 @@ def predict(dfs, path, config):
 
     if config["multi_token"]:
         predictions = {k: v for v, k in predictions}
-        predictions = [predictions[d_id] for d_id in dfs["df"]["discourse_id"]]
+        predictions = [predictions[idx] for idx in range(len(dfs["df"]))]
     return predictions
 
 
