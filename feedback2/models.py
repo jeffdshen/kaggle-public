@@ -217,7 +217,13 @@ class Feedback2Model(nn.Module):
         x = {
             k: v
             for k, v in x.items()
-            if k not in {"offset_mapping", "overflow_to_sample_mapping"}
+            if k
+            not in {
+                "offset_mapping",
+                "overflow_to_sample_mapping",
+                "target_mask",
+                "idxs",
+            }
         }
         target_mask = x["target_mask"] if "target_mask" in x else None
         x = self.roberta(**x)[0]
