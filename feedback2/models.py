@@ -215,6 +215,7 @@ class Feedback2Model(nn.Module):
 
     def forward(self, x):
         mask = x.attention_mask
+        target_mask = x["target_mask"] if "target_mask" in x else None
         x = {**x}
         x = {
             k: v
@@ -227,7 +228,6 @@ class Feedback2Model(nn.Module):
                 "idxs",
             }
         }
-        target_mask = x["target_mask"] if "target_mask" in x else None
         x = self.roberta(**x)[0]
         if target_mask is None:
             x = self.head(x, mask)
