@@ -138,6 +138,10 @@ class MultiTokenHead(nn.Module):
         return x
 
     def get_loss(self, z, y, x):
+        # Not the most efficient fix, since we still run forward, but it's ok.
+        if z.nelement() == 0:
+            return None
+
         mask = x.target_mask
         y = y[mask.bool()]
         if self.bmpl_alpha is None:

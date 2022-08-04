@@ -151,8 +151,9 @@ def forward_backward(model, example, model_batch_size, backward):
         with amp.autocast():
             loss = model.get_loss(z, y, x)
 
-        total_loss.append(loss.item())
-        backward(loss)
+        if loss is not None:
+            total_loss.append(loss.item())
+            backward(loss)
 
     z_batch = torch.cat(z_chunks)
 

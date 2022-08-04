@@ -525,7 +525,7 @@ class Feedback2MultiDataset(Dataset):
             inputs["idxs"] = inputs.overflow_to_sample_mapping.new_tensor(
                 [a for idx in idxs for a in idx]
             )
-            return len(examples), inputs, targets, labels
+            return target_mask.sum().item(), inputs, targets, labels
 
         return collate_fn
 
