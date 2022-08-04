@@ -59,8 +59,7 @@ def predict(dfs, path, config):
             pred = get_preds(model, example, valid_batch_size)
             predictions += pred
 
-
-    if config["multi_token"]:
+    if config["head"] == "multi_token":
         predictions = {k: v for v, k in predictions}
         predictions = [predictions[idx] for idx in range(len(dfs["df"]))]
     return predictions
