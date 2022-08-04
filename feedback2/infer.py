@@ -81,9 +81,27 @@ def get_submission(dfs, preds_batch):
     return sub
 
 
-def ensemble(preds, weights):
+def avg_ensemble(preds, weights):
+    return np.average(preds, axis=0, weights=weights)
+
+def log_avg_ensemble(preds, weights):
+    preds = np.log(preds)
+    avg_log = np.average(preds, axis=0, weights=weights)
+    return np.exp(avg_log)
+
+def ensemble(preds, weights, config):
     pred_weights = [(v, weights[k]) for k, v in preds.items()]
     preds, weights = zip(*pred_weights)
     preds = np.array(preds)
     weights = np.array(weights) / np.sum(weights)
-    return np.average(preds, axis=0, weights=weights)
+
+    if config["prior"] is not None:
+        preds += config["prior"]
+        preds = preds / np.sum(preds, axis=-1, keepdims=True)
+
+    if config["method"] == "avg":
+        return avg_ensemble(preds, weights)
+    elif config["method"] == "log_avg":
+        return log_avg_ensemble(preds, weights)
+    else:
+        raise ValueError("No such method")
