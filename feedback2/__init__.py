@@ -12,6 +12,6 @@ from .models import Feedback2Model, get_linear_warmup_power_decay_scheduler, spl
 
 from .stats import EMAMeter, AverageMeter, MinMeter, F1Meter, MaxMeter, F1EMAMeter
 
-from .train import run, to_device, NoopWandB
+from .train import run, to_device, NoopWandB, get_dataset_splits_for_training
 
 from .infer import predict_fold, get_submission, ensemble
