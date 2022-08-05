@@ -145,10 +145,9 @@ def forward_backward(model, example, model_batch_size, backward):
     z_chunks = []
     total_loss = []
     for x, y in zip(x_chunks, y_chunks):
-        z = model(x)
-        z_chunks.append(z.detach().clone())
-
         with amp.autocast():
+            z = model(x)
+            z_chunks.append(z.detach().clone())
             loss = model.get_loss(z, y, x)
 
         if loss is not None:

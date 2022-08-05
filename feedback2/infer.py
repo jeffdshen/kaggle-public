@@ -21,8 +21,9 @@ def get_preds(model, example, model_batch_size):
     x_chunks = split_batch(x_batch, model_batch_size)
     z_chunks = []
     for x in x_chunks:
-        z = model(x)
-        z_chunks.append(z.detach().clone())
+        with amp.autocast():
+            z = model(x)
+            z_chunks.append(z.detach().clone())
     z_batch = torch.cat(z_chunks)
 
     pred = model.get_pred(z_batch, x_batch)
