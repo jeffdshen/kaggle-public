@@ -72,10 +72,11 @@ def predict_fold(dfs, config, fold):
 
 
 def get_submission(dfs, preds_batch):
+    preds_batch = np.array(preds_batch).tolist()
     sub = []
     df = dfs["df"]
     for idx, preds in zip(df["discourse_id"], preds_batch):
-        sub.append([idx] + preds.tolist())
+        sub.append([idx] + preds)
 
     sub = pd.DataFrame(sub, columns=["discourse_id"] + LABELS)
     return sub
