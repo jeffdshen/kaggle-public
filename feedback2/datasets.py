@@ -453,7 +453,9 @@ def make_merged_df(texts, df, label_df=None):
                 "labels": labels,
             }
         )
-    return pd.DataFrame.from_records(records)
+    merged_df = pd.DataFrame.from_records(records)
+    merged_df.sort_values(by='text', key=lambda col: col.str.len(), inplace=True)
+    return merged_df
 
 
 class Feedback2MultiDataset(Dataset):
