@@ -16,12 +16,12 @@ from .models import Feedback2Model, split_batch
 from .train import to_device, get_feedback2_dataset
 
 
-def get_preds(model, example, model_batch_size):
+def get_preds(model, example, model_batch_size, autocast=True):
     x_batch, _, _ = example
     x_chunks = split_batch(x_batch, model_batch_size)
     z_chunks = []
     for x in x_chunks:
-        with amp.autocast():
+        with amp.autocast(enabled=autocast):
             z = model(x)
             z_chunks.append(z.detach().clone())
     z_batch = torch.cat(z_chunks)

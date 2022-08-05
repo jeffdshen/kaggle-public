@@ -138,14 +138,14 @@ def to_device(example, device):
     return x.to(device), y.to(device), labels
 
 
-def forward_backward(model, example, model_batch_size, backward):
+def forward_backward(model, example, model_batch_size, backward, autocast=True):
     x_batch, y_batch, labels = example
     x_chunks = split_batch(x_batch, model_batch_size)
     y_chunks = torch.split(y_batch, model_batch_size)
     z_chunks = []
     total_loss = []
     for x, y in zip(x_chunks, y_chunks):
-        with amp.autocast():
+        with amp.autocast(enabled=autocast):
             z = model(x)
             z_chunks.append(z.detach().clone())
             loss = model.get_loss(z, y, x)
@@ -177,7 +177,7 @@ def evaluate(model, device, data_loader, config):
             example = to_device(example, device)
 
             loss, scores = forward_backward(
-                model, example, valid_batch_size, noop_backward
+                model, example, valid_batch_size, noop_backward, config["autocast"]
             )
 
             valid_loss_meter.add(loss, batch_size)
@@ -231,7 +231,11 @@ def train_loop(
 
             # Forward
             loss, scores = forward_backward(
-                model, example, config["model_batch_size"], backward
+                model,
+                example,
+                config["model_batch_size"],
+                backward,
+                autocast=config["autocast"],
             )
             sample_num += batch_size
             samples_since_eval += batch_size
