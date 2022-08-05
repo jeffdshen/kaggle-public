@@ -57,7 +57,9 @@ def predict(dfs, path, config):
             batch_size, example = example[0], example[1:]
             example = to_device(example, device)
 
-            pred = get_preds(model, example, valid_batch_size)
+            pred = get_preds(
+                model, example, valid_batch_size, autocast=config["autocast"]
+            )
             predictions += pred
 
     if config["head"] == "multi_token":
@@ -86,10 +88,12 @@ def get_submission(dfs, preds_batch):
 def avg_ensemble(preds, weights):
     return np.average(preds, axis=0, weights=weights)
 
+
 def log_avg_ensemble(preds, weights):
     preds = np.log(preds)
     avg_log = np.average(preds, axis=0, weights=weights)
     return np.exp(avg_log)
+
 
 def ensemble(preds, weights, config):
     pred_weights = [(v, weights[k]) for k, v in preds.items()]
