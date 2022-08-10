@@ -454,7 +454,7 @@ def make_merged_df(texts, df, label_df=None):
             }
         )
     merged_df = pd.DataFrame.from_records(records)
-    merged_df.sort_values(by='text', key=lambda col: col.str.len(), inplace=True)
+    merged_df.sort_values(by="text", key=lambda col: col.str.len(), inplace=True)
     return merged_df
 
 
@@ -532,7 +532,7 @@ class Feedback2MultiDataset(Dataset):
         return collate_fn
 
 
-def score(preds_batch, labels_batch):
+def score_raw(preds_batch, labels_batch):
     scores = []
     preds = np.array(preds_batch)
     preds = preds / np.sum(preds, axis=-1, keepdims=True)
@@ -540,4 +540,8 @@ def score(preds_batch, labels_batch):
     labels = np.array([[LABEL_TO_ID[label]] for label in labels_batch])
     scores = np.take_along_axis(preds, labels, axis=-1)
     scores = -np.log(scores)
-    return np.mean(scores)
+    return scores
+
+
+def score(preds_batch, labels_batch):
+    return np.mean(score_raw(preds_batch, labels_batch))

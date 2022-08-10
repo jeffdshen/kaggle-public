@@ -6,6 +6,7 @@ from .datasets import (
     get_block_dataset,
     Feedback2Dataset,
     score,
+    score_raw,
 )
 
 from .models import Feedback2Model, get_linear_warmup_power_decay_scheduler, split_batch
