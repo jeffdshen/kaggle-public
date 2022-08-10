@@ -50,12 +50,21 @@ def softmax_pred(z, x):
 
 class ClassTokenHead(nn.Module):
     def __init__(
-        self, dim, ff_dim, output_dim, bmpl_alpha=None, weight=None, ignore_idx=-1
+        self,
+        dim,
+        ff_dim,
+        output_dim,
+        bmpl_alpha=None,
+        weight=None,
+        reduction="mean",
+        ignore_idx=-1,
     ):
         super().__init__()
         self.ff = FF(dim, ff_dim, output_dim)
         weight = torch.tensor(weight, dtype=torch.float) if weight is not None else None
-        self.loss = nn.CrossEntropyLoss(weight=weight, ignore_index=ignore_idx)
+        self.loss = nn.CrossEntropyLoss(
+            weight=weight, reduction=reduction, ignore_index=ignore_idx
+        )
         self.ignore_idx = ignore_idx
         self.bmpl_alpha = bmpl_alpha
 
@@ -85,12 +94,21 @@ class ClassTokenHead(nn.Module):
 
 class SiameseHead(nn.Module):
     def __init__(
-        self, dim, ff_dim, output_dim, bmpl_alpha=None, weight=None, ignore_idx=-1
+        self,
+        dim,
+        ff_dim,
+        output_dim,
+        bmpl_alpha=None,
+        weight=None,
+        reduction="mean",
+        ignore_idx=-1,
     ):
         super().__init__()
         self.ff = FF(dim, ff_dim, output_dim)
         weight = torch.tensor(weight, dtype=torch.float) if weight is not None else None
-        self.loss = nn.CrossEntropyLoss(weight=weight, ignore_index=ignore_idx)
+        self.loss = nn.CrossEntropyLoss(
+            weight=weight, reduction=reduction, ignore_index=ignore_idx
+        )
         self.ignore_idx = ignore_idx
         self.bmpl_alpha = bmpl_alpha
 
@@ -124,12 +142,21 @@ class SiameseHead(nn.Module):
 
 class MultiTokenHead(nn.Module):
     def __init__(
-        self, dim, ff_dim, output_dim, bmpl_alpha=None, weight=None, ignore_idx=-1
+        self,
+        dim,
+        ff_dim,
+        output_dim,
+        bmpl_alpha=None,
+        weight=None,
+        reduction="mean",
+        ignore_idx=-1,
     ):
         super().__init__()
         self.ff = FF(dim, ff_dim, output_dim)
         weight = torch.tensor(weight, dtype=torch.float) if weight is not None else None
-        self.loss = nn.CrossEntropyLoss(weight=weight, ignore_index=ignore_idx)
+        self.loss = nn.CrossEntropyLoss(
+            weight=weight, reduction=reduction, ignore_index=ignore_idx
+        )
         self.ignore_idx = ignore_idx
         self.bmpl_alpha = bmpl_alpha
 
@@ -175,6 +202,7 @@ class Feedback2Model(nn.Module):
         weight=None,
         gradient_checkpointing=False,
         bmpl_alpha=1.0,
+        reduction="mean",
     ):
         super().__init__()
         if dropout is None:
@@ -196,22 +224,25 @@ class Feedback2Model(nn.Module):
                 hidden_size,
                 output_dim=max_labels,
                 bmpl_alpha=bmpl_alpha,
+                reduction=reduction,
                 weight=weight,
             )
         elif head == "siamese":
             self.head = SiameseHead(
                 hidden_size,
                 hidden_size,
-                bmpl_alpha=bmpl_alpha,
                 output_dim=max_labels,
+                bmpl_alpha=bmpl_alpha,
+                reduction=reduction,
                 weight=weight,
             )
         elif head == "multi_token":
             self.head = MultiTokenHead(
                 hidden_size,
                 hidden_size,
-                bmpl_alpha=bmpl_alpha,
                 output_dim=max_labels,
+                bmpl_alpha=bmpl_alpha,
+                reduction=reduction,
                 weight=weight,
             )
         else:
