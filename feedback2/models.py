@@ -251,7 +251,7 @@ class Feedback2Model(nn.Module):
                 bmpl_alpha=bmpl_alpha,
                 weight=weight,
                 reduction=reduction,
-                reduction=reduction_scale,
+                reduction_scale=reduction_scale,
             )
         elif head == "siamese":
             self.head = SiameseHead(
@@ -261,7 +261,7 @@ class Feedback2Model(nn.Module):
                 bmpl_alpha=bmpl_alpha,
                 weight=weight,
                 reduction=reduction,
-                reduction=reduction_scale,
+                reduction_scale=reduction_scale,
             )
         elif head == "multi_token":
             self.head = MultiTokenHead(
@@ -271,7 +271,7 @@ class Feedback2Model(nn.Module):
                 bmpl_alpha=bmpl_alpha,
                 weight=weight,
                 reduction=reduction,
-                reduction=reduction_scale,
+                reduction_scale=reduction_scale,
             )
         else:
             raise RuntimeError("Unknown model head")
