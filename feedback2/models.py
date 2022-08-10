@@ -57,6 +57,7 @@ class ClassTokenHead(nn.Module):
         bmpl_alpha=None,
         weight=None,
         reduction="mean",
+        reduction_scale=None,
         ignore_idx=-1,
     ):
         super().__init__()
@@ -67,17 +68,24 @@ class ClassTokenHead(nn.Module):
         )
         self.ignore_idx = ignore_idx
         self.bmpl_alpha = bmpl_alpha
+        self.reduction_scale = reduction_scale
 
     def forward(self, x, mask):
         x = self.ff(x[:, 0])
         return x
 
+    def _scaled_loss(self, z, y):
+        if self.reduction_scale is None:
+            return self.loss(z, y)
+        else:
+            return self.loss(z, y) * self.reduction_scale
+
     def get_loss(self, z, y, x):
         if self.bmpl_alpha is None:
-            return self.loss(z, y)
+            return self._scaled_loss(z, y)
 
         if y.dim() < 2:
-            return self.loss(z, y)
+            return self._scaled_loss(z, y)
 
         lp = -F.log_softmax(z.detach(), dim=-1)
         p = F.softmax(z.detach(), dim=-1)
@@ -85,7 +93,7 @@ class ClassTokenHead(nn.Module):
         r = lp - lq
         r = torch.sigmoid((4 / self.bmpl_alpha) * r) * self.bmpl_alpha
 
-        return self.loss(z, p * r)
+        return self._scaled_loss(z, p * r)
 
     @staticmethod
     def get_pred(z, x):
@@ -101,6 +109,7 @@ class SiameseHead(nn.Module):
         bmpl_alpha=None,
         weight=None,
         reduction="mean",
+        reduction_scale=None,
         ignore_idx=-1,
     ):
         super().__init__()
@@ -111,6 +120,7 @@ class SiameseHead(nn.Module):
         )
         self.ignore_idx = ignore_idx
         self.bmpl_alpha = bmpl_alpha
+        self.reduction_scale = reduction_scale
 
     def forward(self, x, mask):
         x = x[:, 0]
@@ -120,12 +130,18 @@ class SiameseHead(nn.Module):
         x = self.ff(x)
         return x
 
+    def _scaled_loss(self, z, y):
+        if self.reduction_scale is None:
+            return self.loss(z, y)
+        else:
+            return self.loss(z, y) * self.reduction_scale
+
     def get_loss(self, z, y, x):
         if self.bmpl_alpha is None:
-            return self.loss(z, y)
+            return self._scaled_loss(z, y)
 
         if y.dim() < 2:
-            return self.loss(z, y)
+            return self._scaled_loss(z, y)
 
         lp = -F.log_softmax(z.detach(), dim=-1)
         p = F.softmax(z.detach(), dim=-1)
@@ -133,7 +149,7 @@ class SiameseHead(nn.Module):
         r = lp - lq
         r = torch.sigmoid((4 / self.bmpl_alpha) * r) * self.bmpl_alpha
 
-        return self.loss(z, p * r)
+        return self._scaled_loss(z, p * r)
 
     @staticmethod
     def get_pred(z, x):
@@ -149,6 +165,7 @@ class MultiTokenHead(nn.Module):
         bmpl_alpha=None,
         weight=None,
         reduction="mean",
+        reduction_scale=None,
         ignore_idx=-1,
     ):
         super().__init__()
@@ -159,10 +176,17 @@ class MultiTokenHead(nn.Module):
         )
         self.ignore_idx = ignore_idx
         self.bmpl_alpha = bmpl_alpha
+        self.reduction_scale = reduction_scale
 
     def forward(self, x, mask):
         x = self.ff(x[mask.bool()])
         return x
+
+    def _scaled_loss(self, z, y):
+        if self.reduction_scale is None:
+            return self.loss(z, y)
+        else:
+            return self.loss(z, y) * self.reduction_scale
 
     def get_loss(self, z, y, x):
         # Not the most efficient fix, since we still run forward, but it's ok.
@@ -172,10 +196,10 @@ class MultiTokenHead(nn.Module):
         mask = x.target_mask
         y = y[mask.bool()]
         if self.bmpl_alpha is None:
-            return self.loss(z, y)
+            return self._scaled_loss(z, y)
 
         if y.dim() < 2:
-            return self.loss(z, y)
+            return self._scaled_loss(z, y)
 
         lp = -F.log_softmax(z.detach(), dim=-1)
         p = F.softmax(z.detach(), dim=-1)
@@ -183,7 +207,7 @@ class MultiTokenHead(nn.Module):
         r = lp - lq
         r = torch.sigmoid((4 / self.bmpl_alpha) * r) * self.bmpl_alpha
 
-        return self.loss(z, p * r)
+        return self._scaled_loss(z, p * r)
 
     @staticmethod
     def get_pred(z, x):
@@ -203,6 +227,7 @@ class Feedback2Model(nn.Module):
         gradient_checkpointing=False,
         bmpl_alpha=1.0,
         reduction="mean",
+        reduction_scale=None,
     ):
         super().__init__()
         if dropout is None:
@@ -224,8 +249,9 @@ class Feedback2Model(nn.Module):
                 hidden_size,
                 output_dim=max_labels,
                 bmpl_alpha=bmpl_alpha,
-                reduction=reduction,
                 weight=weight,
+                reduction=reduction,
+                reduction=reduction_scale,
             )
         elif head == "siamese":
             self.head = SiameseHead(
@@ -233,8 +259,9 @@ class Feedback2Model(nn.Module):
                 hidden_size,
                 output_dim=max_labels,
                 bmpl_alpha=bmpl_alpha,
-                reduction=reduction,
                 weight=weight,
+                reduction=reduction,
+                reduction=reduction_scale,
             )
         elif head == "multi_token":
             self.head = MultiTokenHead(
@@ -242,8 +269,9 @@ class Feedback2Model(nn.Module):
                 hidden_size,
                 output_dim=max_labels,
                 bmpl_alpha=bmpl_alpha,
-                reduction=reduction,
                 weight=weight,
+                reduction=reduction,
+                reduction=reduction_scale,
             )
         else:
             raise RuntimeError("Unknown model head")

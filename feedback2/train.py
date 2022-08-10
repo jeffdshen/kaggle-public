@@ -341,6 +341,7 @@ def train(fold, train_dataset, valid_dataset, config, wandb):
         gradient_checkpointing=config["gradient_checkpointing"],
         bmpl_alpha=config["bmpl_alpha"],
         reduction=config["reduction"],
+        reduction_scale=config["reduction_scale"],
     )
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     register_optimizer(model, config)
