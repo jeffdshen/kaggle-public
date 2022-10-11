@@ -115,7 +115,6 @@ class Feedback3Model(nn.Module):
             self.head = MseHead(
                 hidden_size,
                 hidden_size,
-                weight=weight,
             )
         else:
             raise RuntimeError("Unknown model head")
