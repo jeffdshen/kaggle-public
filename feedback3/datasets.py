@@ -296,6 +296,7 @@ class Feedback3Dataset(Dataset):
             truncation=True,
             return_overflowing_tokens=False,
             return_offsets_mapping=True,
+            max_length=self.max_len,
             return_tensors="pt",
             pad_to_multiple_of=self.pad_to_multiple_of,
         )
