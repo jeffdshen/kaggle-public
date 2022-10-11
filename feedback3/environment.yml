@@ -1,0 +1,22 @@
+name: kaggle_feedback3
+channels:
+  - pytorch
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.7.13
+  - numpy
+  - pip
+  - tensorboard=2.8.0
+  - tqdm
+  - pytorch=1.12.0
+  - black
+  - transformers
+  - datasets
+  - tokenizers
+  - kaggle
+  - scikit-learn
+  - ipykernel
+  - wandb
+  - matplotlib
+  - sentencepiece
