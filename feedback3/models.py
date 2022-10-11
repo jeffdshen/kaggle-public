@@ -66,7 +66,7 @@ class MseHead(nn.Module):
         self.loss = nn.MSELoss()
 
     def forward(self, x, mask):
-        x = self.ff(x[mask.bool()])
+        x = self.ff(x[mask.bool()]).squeeze(-1)
         return x
 
     def get_loss(self, z, y, x):
