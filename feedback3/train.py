@@ -351,7 +351,7 @@ def train(fold, train_dataset, valid_dataset, config, wandb):
     )
 
 
-def get_dataset_splits_for_training(dfs, config, label_dfs):
+def get_dataset_splits_for_training(dfs, config):
     texts = dfs[config["dataset"]]["texts"]
 
     datasets = []
@@ -371,7 +371,7 @@ def get_dataset_splits_for_training(dfs, config, label_dfs):
     return datasets
 
 
-def run(dfs, label_dfs, config, pre_config, wandb):
+def run(dfs, config, pre_config, wandb):
     config = copy.deepcopy(config)
     wandb.config.update(config)
     wandb.config.update({"pre_config": pre_config})
@@ -380,7 +380,7 @@ def run(dfs, label_dfs, config, pre_config, wandb):
     print(f"Config: {json.dumps(config, indent=4, sort_keys=True)}")
     print(f"Pre-config: {json.dumps(pre_config, indent=4, sort_keys=True)}")
 
-    datasets = get_dataset_splits_for_training(dfs, config, label_dfs)
+    datasets = get_dataset_splits_for_training(dfs, config)
 
     best_scores = []
     for fold, (train_dataset, valid_dataset) in enumerate(datasets):
