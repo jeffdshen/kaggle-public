@@ -253,15 +253,13 @@ def get_targets(labels, target_mask, target_type):
     return targets
 
 
+# TODO Add label dfs
 class Feedback3Dataset(Dataset):
     def __init__(
         self,
         df,
         tokenizer,
         max_len,
-        truncation,
-        return_overflowing_tokens,
-        stride,
         pad_to_multiple_of,
         normalize_text,
         target_type,
@@ -272,9 +270,6 @@ class Feedback3Dataset(Dataset):
         self.df = df
         self.tokenizer = tokenizer
         self.max_len = max_len
-        self.truncation = truncation
-        self.return_overflowing_tokens = return_overflowing_tokens
-        self.stride = stride
         self.pad_to_multiple_of = pad_to_multiple_of
         self.target_type = target_type
         self.prompt, self.offsets = extract_offsets(
@@ -300,9 +295,7 @@ class Feedback3Dataset(Dataset):
             padding=True,
             truncation=True,
             return_overflowing_tokens=False,
-            return_offsets_mapping=False,
-            max_length=self.max_len,
-            stride=self.stride,
+            return_offsets_mapping=True,
             return_tensors="pt",
             pad_to_multiple_of=self.pad_to_multiple_of,
         )

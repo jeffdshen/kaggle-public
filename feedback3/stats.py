@@ -36,6 +36,18 @@ class EMAMeter:
         self.avg = self.sum / (1 - self.inv_count)
 
 
+class MeanColRootMeter:
+    def __init__(self, meter):
+        self.meter = meter
+
+    def reset(self):
+        self.meter.reset()
+
+    def add(self, avg, count=1):
+        self.meter.add(avg, count)
+        self.avg = np.mean(np.sqrt(self.meter.avg))
+
+
 class MinMeter:
     def __init__(self):
         self.min = float("inf")
