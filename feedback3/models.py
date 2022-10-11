@@ -115,7 +115,6 @@ class Feedback3Model(nn.Module):
             self.head = MseHead(
                 hidden_size,
                 hidden_size,
-                output_dim=max_labels,
                 weight=weight,
             )
         else:
