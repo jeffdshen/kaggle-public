@@ -5,7 +5,10 @@ import torch
 import pandas as pd
 import numpy as np
 
+import transformers
+
 from .datasets import (
+    LABEL_TYPES,
     extract_offsets,
     get_flat_targets,
     get_hard_labels,
@@ -13,6 +16,7 @@ from .datasets import (
     get_target_mask,
     overlap,
     score,
+    Feedback3Dataset,
 )
 
 
@@ -189,6 +193,19 @@ class TargetMaskTestCase(unittest.TestCase):
             dtype=torch.long,
         )
         torch.testing.assert_close(target_mask, expected)
+
+
+class DatasetTestCase(unittest.TestCase):
+    def test_getitem(self):
+        texts = ["aa\n\n\n\n\n\n", "bb\n", "cc\n"]
+        values = [1.0, 1.5, 5.0]
+
+        df = pd.DataFrame({"text": texts, **{label: values for label in LABEL_TYPES}})
+        dataset = Feedback3Dataset( df, None, 10, 8, True, "linear", "a<?>", "<", ">")
+        self.assertEqual(len(dataset), 3)
+        self.assertEqual(dataset[0], ("a?aa", [(1, 2)], [1.0] * 6))
+        self.assertEqual(dataset[1], ("a?bb", [(1, 2)], [1.5] * 6))
+        self.assertEqual(dataset[2], ("a?cc", [(1, 2)], [5.0] * 6))
 
 
 if __name__ == "__main__":

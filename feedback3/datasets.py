@@ -283,7 +283,7 @@ class Feedback3Dataset(Dataset):
         return len(self.df)
 
     def __getitem__(self, idx):
-        text = self.df.loc[idx, ["text"]]
+        text = self.df.loc[idx, "text"]
         label = list(self.df.loc[idx, LABEL_TYPES])
 
         return self.prompt + text, self.offsets, label
