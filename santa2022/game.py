@@ -117,7 +117,7 @@ class SantaGameEnv(gym.Env):
         self._cost = get_cost(delta_color, action)
         reward = unseen - self._cost - (new_dist - old_dist)
         self._total_cost += self._cost
-        terminated = np.array_equal(self._loc, self._target)
+        terminated = np.array_equal(self._loc, self._target) and self._remaining == 0
         observation = self._get_obs()
         info = self._get_info()
         return observation, reward, terminated, False, info
@@ -165,4 +165,3 @@ class SantaGameEnv(gym.Env):
         return np.transpose(
             np.array(pygame.surfarray.pixels3d(draw_canvas)), axes=(1, 0, 2)
         )
-
