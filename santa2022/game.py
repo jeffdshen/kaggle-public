@@ -16,7 +16,7 @@ class SantaGameEnv(gym.Env):
         levels=LEVELS,
         size=(64, 64),
         arms=ARMS,
-        unseen_weight=2.0,
+        unseen_weight=4.0,
         target_weight=0.02,
         render_mode=None,
     ):
@@ -108,6 +108,7 @@ class SantaGameEnv(gym.Env):
         new_color = self._colors[tuple(self._loc)]
         new_dist = np.abs(self._loc - self._target).sum()
         delta_color = np.subtract(new_color, old_color)
+        delta_dist = new_dist - old_dist
         self._loc_history.append(self._loc)
 
         unseen = 1 - self._seen[tuple(self._loc)]
@@ -115,7 +116,9 @@ class SantaGameEnv(gym.Env):
 
         self._seen[tuple(self._loc)] = 1
         self._cost = get_cost(delta_color, action)
-        reward = unseen - self._cost - (new_dist - old_dist)
+        reward = (
+            unseen * self.unseen_weight - self._cost - delta_dist * self.target_weight
+        )
         self._total_cost += self._cost
         terminated = np.array_equal(self._loc, self._target) and self._remaining == 0
         observation = self._get_obs()
