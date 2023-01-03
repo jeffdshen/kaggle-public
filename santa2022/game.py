@@ -42,7 +42,7 @@ class SantaGameEnv(gym.Env):
                 "target": spaces.Box(np.zeros((2,)), self.size - 1, dtype=np.int64),
             }
         )
-        self.action_space = spaces.MultiDiscrete([3] * 8)
+        self.action_space = spaces.MultiDiscrete([3] * len(arms))
 
         assert render_mode is None or render_mode in self.metadata["render_modes"]
         self.render_mode = render_mode
