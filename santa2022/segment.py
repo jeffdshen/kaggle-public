@@ -63,30 +63,59 @@ def sum_points(u, d):
     return (u[0] + d[0], u[1] + d[1])
 
 
-def run_segmentation(
-    image_map,
-    max_distance,
-    min_count=32,
-    max_size=64,
-    neighbors=[(0, 1), (1, 0), (-1, 0), (0, -1)],
-):
-    uf = UnionFind(image_map)
+def get_edges(image_map, neighbors=[(0, 1), (1, 0), (-1, 0), (0, -1)]):
     edges = []
-    component_edges = []
     for u in image_map:
-        a = image_map[u]
         for d in neighbors:
             v = sum_points(u, d)
             if v not in image_map:
                 continue
             if v < u:
                 continue
-            b = image_map[v]
-            edges.append((get_pixel_cost(a, b, u, v), (u, v)))
+            edges.append((u, v))
+    return edges
 
-    edges.sort()
 
-    boxes = {(x, y): (x, x + 1, y, y + 1) for x, y in image_map}
+def get_all_component_edges(
+    image_map, uf, neighbors=[(0, 1), (1, 0), (-1, 0), (0, -1)]
+):
+    edges = []
+    for u in image_map:
+        for d in neighbors:
+            v = sum_points(u, d)
+            if v not in image_map:
+                continue
+            if v < u:
+                continue
+            if uf.find(u) != uf.find(v):
+                continue
+            edges.append((u, v))
+    return edges
+
+
+def get_weighted_edges(image_map, edges):
+    weighted_edges = []
+    for u, v in edges:
+        a = image_map[u]
+        b = image_map[v]
+        weighted_edges.append((get_pixel_cost(a, b, u, v), (u, v)))
+
+    weighted_edges.sort()
+    return weighted_edges
+
+
+def update_segmentation(
+    uf,
+    component_edges,
+    boxes,
+    image_map,
+    edges,
+    max_distance,
+    min_count=32,
+    max_size=64,
+):
+    edges = get_weighted_edges(image_map, edges)
+
     for cost, edge in edges:
         u, v = edge
         u, v = uf.find(u), uf.find(v)
@@ -101,7 +130,35 @@ def run_segmentation(
         u = uf.find(u)
         boxes[u] = box
         component_edges.append(edge)
-    return uf, component_edges
+
+
+def prepare_segmentation(image_map):
+    uf = UnionFind(image_map)
+    component_edges = []
+    boxes = {(x, y): (x, x + 1, y, y + 1) for x, y in image_map}
+    return uf, component_edges, boxes
+
+
+def run_segmentation(
+    image_map,
+    max_distance,
+    min_count=32,
+    max_size=64,
+    neighbors=[(0, 1), (1, 0), (-1, 0), (0, -1)],
+):
+    uf, component_edges, boxes = prepare_segmentation(image_map)
+    edges = get_edges(image_map, neighbors)
+    update_segmentation(
+        uf,
+        component_edges,
+        boxes,
+        image_map,
+        edges,
+        max_distance,
+        min_count,
+        max_size,
+    )
+    return uf, component_edges, boxes
 
 
 def get_segment_image_map(image_map, uf):

@@ -1,4 +1,7 @@
 import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib.collections as mc
+from PIL import Image
 
 # From https://www.kaggle.com/code/ryanholbrook/getting-started-with-santa-2022
 def _rotate_link(vector, direction):
@@ -34,11 +37,11 @@ def _get_square(link_length):
     return tuple(coords)
 
 
-def to_image_array(image_map, bounds):
-    xmin, xmax, ymin, ymax = bounds
-    image_array = np.ones((xmax - xmin + 1, ymax - ymin + 1, 3), dtype=np.float32)
-    for x in range(xmin, xmax + 1):
-        for y in range(ymin, ymax + 1):
+def to_image_array(image_map, box):
+    xmin, xmax, ymin, ymax = box
+    image_array = np.ones((xmax - xmin, ymax - ymin, 3), dtype=np.float32)
+    for x in range(xmin, xmax):
+        for y in range(ymin, ymax):
             if (x, y) in image_map:
                 image_array[x - xmin, y - ymin] = image_map[x, y]
     return image_array
@@ -46,7 +49,7 @@ def to_image_array(image_map, bounds):
 
 def bounds_to_size(bounds):
     xmin, xmax, ymin, ymax = bounds
-    return xmax - xmin + 1, ymax - ymin + 1
+    return xmax - xmin, ymax - ymin
 
 
 ARMS = np.array((64, 32, 16, 8, 4, 2, 1, 1))
@@ -94,3 +97,24 @@ class ArmHelper:
 
 def get_cost(delta_color, action, color_scale=3.0):
     return np.sqrt(np.count_nonzero(action)) + color_scale * np.abs(delta_color).sum()
+
+
+def show_image(image_map, bounds, edges=[], figsize=(20, 20)):
+    image_array = to_image_array(image_map, bounds)
+    image_array = np.transpose(np.flip(image_array, axis=1), axes=(1, 0, 2))
+    fig, ax = plt.subplots(figsize=figsize)
+    xmin, xmax, ymin, ymax = bounds
+    lines = []
+    for x, y in edges:
+        lines.append([x, y])
+
+    lc = mc.LineCollection(lines, colors="b")
+    ax.add_collection(lc)
+    ax.matshow(image_array, extent=(xmin - 0.5, xmax - 0.5, ymin - 0.5, ymax - 0.5))
+    return ax.grid(False)
+
+
+def get_image_array(path):
+    img = Image.open(path)
+    img = (np.array(img) / 255)[:, :, :3]
+    return np.transpose(np.flip(img, axis=0), axes=(1, 0, 2))
