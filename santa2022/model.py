@@ -1,3 +1,5 @@
+import numpy as np
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -186,11 +188,14 @@ class Model(nn.Module):
         ]
         self.encoder = nn.Sequential(*stage_list)
         self.pooler = nn.AdaptiveAvgPool2d((1, 1))
-        self.head = FFHead(stages[-1][0], action_size, activation)
+        self.head = FFHead(stages[-1][0], np.prod(action_size), activation)
+        self.action_size = action_size
 
+    # Inputs must be batched inputs (N, *) because of GroupNorm
     def forward(self, colors, seen, arm, loc, target):
         x = self.embed(colors, seen, arm, loc, target)
         x = self.encoder(x)
         x = self.pooler(x).squeeze(-1).squeeze(-1)
         x = self.head(x)
+        x = x.view(*x.size()[:-1], *self.action_size)
         return x
