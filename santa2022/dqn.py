@@ -57,6 +57,24 @@ def update_target(target_model, model):
     target_model.load_state_dict(model.state_dict())
 
 
+def sample_action(train_envs, config):
+    if config["action_sample_probs"] is None:
+        return train_envs.action_space.sample()
+
+    action_counts = np.random.choice(
+        len(config["action_sample_probs"]),
+        size=(config["num_envs"],),
+        p=config["action_sample_probs"],
+    )
+    action_counts = np.expand_dims(action_counts, axis=1)
+    action_range = np.expand_dims(np.arange(len(config["action_size"])), axis=0)
+    action_range = action_range < action_counts
+    action_mask = np.array([random.sample(list(a), len(a)) for a in action_range])
+    actions = np.random.randint(low=1, high=config["action_size"], size=(config["num_envs"], len(config["action_size"])))
+    actions[~action_mask] = 0
+    return actions
+
+
 def step_episode(
     config, sample_num, train_envs, model, device, prev_obs, replay_buffer
 ):
@@ -64,7 +82,7 @@ def step_episode(
         config["epsilon"], config["min_epsilon"], config["epsilon_decay"], sample_num
     )
     actions_mask = np.random.rand(config["num_envs"]) < epsilon
-    actions = train_envs.action_space.sample()
+    actions = sample_action(train_envs, config)
     with torch.no_grad():
         if np.count_nonzero(~actions_mask) > 0:
             inputs = masked_select(prev_obs, ~actions_mask)
