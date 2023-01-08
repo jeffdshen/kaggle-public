@@ -146,6 +146,8 @@ class NoopWandB:
 
 
 def result_to_str(result):
+    if isinstance(result, np.ndarray):
+        result = result.item()
     if isinstance(result, int):
         return f"{result:8d}"
     elif isinstance(result, float):
