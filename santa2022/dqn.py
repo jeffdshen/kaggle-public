@@ -83,7 +83,7 @@ def step_episode(
     if "_final_info" in infos and infos["_final_info"][0]:
         results = {}
         final_info = infos["final_info"][0]
-        results.update({k: final_info[k] for k in ["remaining", "total_cost"]})
+        results.update({k: final_info[k] for k in ["total_cost"]})
         episode_info = final_info["episode"]
         results.update({k: episode_info[k] for k in ["r", "l"]})
         results["sample"] = sample_num
