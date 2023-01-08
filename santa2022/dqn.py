@@ -126,7 +126,7 @@ def train(config, wandb, save_dir):
     step_num = 0
     samples_since_eval = 0
     samples_since_target = 0
-    results = {}
+    latest_results = {}
 
     def backward(loss):
         nonlocal step_num
