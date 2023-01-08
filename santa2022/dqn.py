@@ -92,10 +92,12 @@ def step_episode(
     return None
 
 
-def record_env(env_fn, path):
+def record_env(env_fn, path, config):
     env = env_fn()
     env = gym.wrappers.RecordEpisodeStatistics(env)
-    env = gym.wrappers.RecordVideo(env, video_folder=path)
+    ep_per_trigger = (config["ep_trigger"] - 1) // config["num_envs"] + 1
+    ep_trigger = lambda n: n % ep_per_trigger == 1
+    env = gym.wrappers.RecordVideo(env, video_folder=path, episode_trigger=ep_trigger)
     return env
 
 
@@ -106,7 +108,7 @@ def train(config, wandb, save_dir):
     save_dir.mkdir(exist_ok=True, parents=True)
     replay_buffer = ReplayBuffer(config["buffer_size"])
     env_fn = lambda: gym.make("Santa2022Game-v0", render_mode="rgb_array")
-    record_env_fn = lambda: record_env(env_fn, path=save_dir / "video")
+    record_env_fn = lambda: record_env(env_fn, save_dir / "video", config)
 
     train_envs = SyncVectorEnv([record_env_fn] + [env_fn] * (config["num_envs"] - 1))
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
