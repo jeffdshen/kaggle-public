@@ -103,6 +103,7 @@ def train(config, wandb, save_dir):
     wandb.config.update(config)
     set_seed(config["seed"])
     save_dir = Path(save_dir) / wandb.run.name
+    save_dir.mkdir(exist_ok=True, parents=True)
     replay_buffer = ReplayBuffer(config["buffer_size"])
     env_fn = lambda: gym.make("Santa2022Game-v0", render_mode="rgb_array")
     record_env_fn = lambda: record_env(env_fn, path=save_dir / "video")
