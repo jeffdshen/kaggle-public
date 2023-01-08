@@ -153,7 +153,7 @@ def result_to_str(result):
     elif isinstance(result, float):
         return f"{result:10.5}"
     else:
-        raise ValueError(f"Unsupported result: {result}")
+        raise ValueError(f"Unsupported result of type {type(result)}: {result}")
 
 
 def results_to_str(results):
