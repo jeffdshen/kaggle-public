@@ -70,7 +70,11 @@ def sample_action(train_envs, config):
     action_range = np.expand_dims(np.arange(len(config["action_size"])), axis=0)
     action_range = action_range < action_counts
     action_mask = np.array([random.sample(list(a), len(a)) for a in action_range])
-    actions = np.random.randint(low=1, high=config["action_size"], size=(config["num_envs"], len(config["action_size"])))
+    actions = np.random.randint(
+        low=1,
+        high=config["action_size"],
+        size=(config["num_envs"], len(config["action_size"])),
+    )
     actions[~action_mask] = 0
     return actions
 
@@ -212,3 +216,4 @@ def train(config, wandb, save_dir):
             print(results_to_str(latest_results))
             wandb.log(latest_results)
             torch.save(model.state_dict(), save_dir / "latest.pt")
+    print("Completed run successfully")
