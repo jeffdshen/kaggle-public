@@ -105,6 +105,7 @@ def step_episode(
         episode_info = final_info["episode"]
         results.update({k: episode_info[k] for k in ["r", "l"]})
         results["sample"] = sample_num
+        results["epsilon"] = epsilon
         return results
 
     return None
