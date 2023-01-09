@@ -139,6 +139,8 @@ def train(config, wandb, save_dir):
     target_model = get_model(config)
     model = model.to(device)
     target_model = target_model.to(device)
+    if config["load_path"]:
+        model.load_state_dict(torch.load(config["load_path"]))
     optimizer = get_optimizer(model, config)
     scheduler = get_linear_warmup_power_decay_scheduler(
         optimizer, config["warmup_steps"], float("inf"), end_multiplier=1.0, power=1.0
