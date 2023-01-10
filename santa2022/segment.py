@@ -38,11 +38,10 @@ class UnionFind:
 
 
 def get_pixel_cost(color_a, color_b, u, v, color_weight=3.0):
-    if np.sum(np.abs(np.subtract(u, v))) > 8:
+    d = np.sum(np.abs(np.subtract(u, v)))
+    if d > 8:
         return 8000000
-    return color_weight * np.abs(np.subtract(color_a, color_b)).sum() + np.sqrt(
-        np.sum(np.abs(np.subtract(u, v)))
-    )
+    return color_weight * np.abs(np.subtract(color_a, color_b)).sum() + np.sqrt(d)
 
 
 def combine_boxes(b1, b2):
