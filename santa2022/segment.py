@@ -215,7 +215,7 @@ def fill_islands(uf, image_map, edges, neighbors=[(0, 1), (1, 0), (-1, 0), (0, -
             edges.append((u, r))
 
 
-## Stuff for concorde
+## Stuff for linkern/LKH
 
 
 def to_edge_list(image_map, edges, m=100):
@@ -233,21 +233,55 @@ def write_edge_list(n, edge_list, path):
             f.write(f"{v} {u} {w}\n")
 
 
-def tour_to_edges(image_map, tour_list):
-    nodes = sorted(image_map.keys())
-    tour_edges = []
-    for i, j in zip(tour_list[:-1], tour_list[1:]):
-        tour_edges.append((nodes[i], nodes[j]))
+def write_tsp(n, edge_list, path, fixed_edges=None):
+    with open(path, "w") as f:
+        f.write(f"NAME : SANTA2022\n")
+        f.write(f"TYPE : TSP\n")
+        f.write(f"COMMENT : KAGGLE\n")
+        f.write(f"DIMENSION : {n}\n")
+        f.write(f"EDGE_WEIGHT_TYPE : EXPLICIT\n")
+        f.write(f"EDGE_DATA_FORMAT : EDGE_LIST\n")
+        f.write(f"EDGE_WEIGHT_FORMAT : UPPER_ROW\n")
+        f.write(f"EDGE_DATA_SECTION :\n")
+        for w, (u, v) in edge_list:
+            f.write(f"{u + 1} {v + 1} {w}\n")
 
-    tour_edges.append((nodes[tour_list[0]], nodes[tour_list[-1]]))
-    return tour_edges
+        if fixed_edges is not None:
+            f.write(f"FIXED_EDGES_SECTION :\n")
+            for w, (u, v) in fixed_edges:
+                f.write(f"{u + 1} {v + 1}\n")
+        f.write(f"-1\n")
 
 
-def read_tour(path):
+def write_parameter_file(params, path):
+    with open(path, "w") as f:
+        for k, v in params.items():
+            f.write(f"{k} = {v}\n")
+
+
+def read_tour(path, format="linkern"):
     with open(path, "r") as f:
-        _ = [int(x) for x in next(f).split()]
-        array = [int(x) for line in f for x in line.split()]
+        if format.lower() == "linkern":
+            array = [int(x) for line in f for x in line.split()]
+            return array[1:]
+        elif format.lower() == "lkh":
+            lines = list(f)
+            array = [int(x) for line in lines[1:-1] for x in line.split()]
+            return [u - 1 for u in array]
         return array
+
+
+def write_tour(tour, path, format="linkern"):
+    with open(path, "w") as f:
+        if format.lower() == "linkern":
+            f.write(f"{len(tour)}\n")
+            for u in tour:
+                f.write(f"{u}\n")
+        if format.lower() == "lkh":
+            f.write("TOUR_SECTION: \n")
+            for u in tour:
+                f.write(f"{u + 1}\n")
+            f.write(f"-1\n")
 
 
 def initial_tour(image_map):
@@ -275,6 +309,16 @@ def initial_tour(image_map):
     return tour
 
 
+def tour_to_edges(image_map, tour_list):
+    nodes = sorted(image_map.keys())
+    tour_edges = []
+    for i, j in zip(tour_list[:-1], tour_list[1:]):
+        tour_edges.append((nodes[i], nodes[j]))
+
+    tour_edges.append((nodes[tour_list[0]], nodes[tour_list[-1]]))
+    return tour_edges
+
+
 def get_neighbors(n):
     return [
         (x, y)
@@ -282,10 +326,3 @@ def get_neighbors(n):
         for y in range(-n, n + 1)
         if 0 < np.abs([x, y]).sum() <= n
     ]
-
-
-def write_tour(tour, path):
-    with open(path, "w") as f:
-        f.write(f"{len(tour)}\n")
-        for u in tour:
-            f.write(f"{u}\n")
