@@ -1,5 +1,6 @@
 import numpy as np
 from collections import defaultdict
+from tqdm import tqdm
 
 
 class UnionFind:
@@ -37,6 +38,8 @@ class UnionFind:
 
 
 def get_pixel_cost(color_a, color_b, u, v, color_weight=3.0):
+    if np.sum(np.abs(np.subtract(u, v))) > 8:
+        return 8000000
     return color_weight * np.abs(np.subtract(color_a, color_b)).sum() + np.sqrt(
         np.sum(np.abs(np.subtract(u, v)))
     )
@@ -211,3 +214,79 @@ def fill_islands(uf, image_map, edges, neighbors=[(0, 1), (1, 0), (-1, 0), (0, -
             if not uf.union(u, r):
                 continue
             edges.append((u, r))
+
+
+## Stuff for concorde
+
+
+def to_edge_list(image_map, edges, m=100):
+    nodes = sorted(image_map.keys())
+    to_node = {u: i for i, u in enumerate(nodes)}
+    edge_list = [(int(w * m + 0.5), (to_node[u], to_node[v])) for w, (u, v) in edges]
+    return len(nodes), edge_list
+
+
+def write_edge_list(n, edge_list, path):
+    with open(path, "w") as f:
+        f.write(f"{n} {len(edge_list) * 2}\n")
+        for w, (u, v) in edge_list:
+            f.write(f"{u} {v} {w}\n")
+            f.write(f"{v} {u} {w}\n")
+
+
+def tour_to_edges(image_map, tour_list):
+    nodes = sorted(image_map.keys())
+    tour_edges = []
+    for i, j in zip(tour_list[:-1], tour_list[1:]):
+        tour_edges.append((nodes[i], nodes[j]))
+
+    tour_edges.append((nodes[tour_list[0]], nodes[tour_list[-1]]))
+    return tour_edges
+
+
+def read_tour(path):
+    with open(path, "r") as f:
+        _ = [int(x) for x in next(f).split()]
+        array = [int(x) for line in f for x in line.split()]
+        return array
+
+
+def initial_tour(image_map):
+    neighbors = [(0, 1), (1, 0), (-1, 0), (0, -1)]
+    nodes = sorted(image_map.keys())
+    to_node = {u: i for i, u in enumerate(nodes)}
+    seen = set()
+    tour = []
+    u = nodes[0]
+    while len(seen) < len(image_map):
+        if u in seen:
+            raise ValueError(f"Could not tour, hit {len(tour)} nodes")
+        tour.append(to_node[u])
+        seen.add(u)
+        for i, d in enumerate(neighbors):
+            v = sum_points(u, d)
+            if v not in image_map:
+                continue
+            if v not in seen:
+                u = v
+                if i == len(neighbors) - 1:
+                    neighbors[-1], neighbors[-2] = neighbors[-2], neighbors[-1]
+                break
+
+    return tour
+
+
+def get_neighbors(n):
+    return [
+        (x, y)
+        for x in range(-n, n + 1)
+        for y in range(-n, n + 1)
+        if 0 < np.abs([x, y]).sum() <= n
+    ]
+
+
+def write_tour(tour, path):
+    with open(path, "w") as f:
+        f.write(f"{len(tour)}\n")
+        for u in tour:
+            f.write(f"{u}\n")
