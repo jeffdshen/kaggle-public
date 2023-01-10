@@ -68,7 +68,7 @@ def sum_points(u, d):
 
 def get_edges(image_map, neighbors=[(0, 1), (1, 0), (-1, 0), (0, -1)]):
     edges = []
-    for u in image_map:
+    for u in tqdm(image_map):
         for d in neighbors:
             v = sum_points(u, d)
             if v not in image_map:
@@ -98,7 +98,7 @@ def get_all_component_edges(
 
 def get_weighted_edges(image_map, edges):
     weighted_edges = []
-    for u, v in edges:
+    for u, v in tqdm(edges):
         a = image_map[u]
         b = image_map[v]
         weighted_edges.append((get_pixel_cost(a, b, u, v), (u, v)))
