@@ -1,0 +1,23 @@
+name: kaggle_daigt
+channels:
+  - pytorch
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.10.12
+  - numpy
+  - pip
+  - tensorboard=2.13.0
+  - tqdm
+  - pytorch=2.1.0
+  - black
+  - transformers
+  - datasets
+  - tokenizers
+  - kaggle
+  - scikit-learn
+  - ipykernel
+  - wandb
+  - matplotlib
+  - sentencepiece
+  - pyspellchecker=0.7.2
