@@ -5,7 +5,9 @@ import heapq
 
 import numpy as np
 import pandas as pd
-from tqdm import tqdm
+from tqdm.auto import tqdm
+from dataclasses import dataclass
+from typing import Tuple, Dict, Optional, List
 
 from spellchecker import SpellChecker
 
@@ -324,9 +326,7 @@ class WordFinder:
 
 
 def find_spell_check_candidates(
-    source_df: pd.DataFrame,
-    df: pd.DataFrame,
-    df_to_source_index: dict[int, int],
+    texts,
     score_fn,
     ngram_fn,
     preprocess_fn,
@@ -336,12 +336,10 @@ def find_spell_check_candidates(
     memoize_candidates,
 ):
     replace_candidates = {}
-    for i, row in tqdm(df.iterrows()):
-        text = row["text"]
+    for i, (text, source) in tqdm(texts.items()):
         x = ngram_fn(text)
-        j = df_to_source_index[i]
 
-        source = preprocess_fn(source_df.loc[j, "text"])
+        source = preprocess_fn(source)
         words = words_re.findall(source)
         words = uniquify(words)
 
@@ -379,9 +377,7 @@ def apply_replacements(source, replace, postprocess_fn):
 
 
 def prune_spell_check_candidates(
-    source_df: pd.DataFrame,
-    df: pd.DataFrame,
-    df_to_source_index: dict[int, int],
+    texts,
     score_fn,
     ngram_fn,
     preprocess_fn,
@@ -391,12 +387,10 @@ def prune_spell_check_candidates(
     replacements = {}
     results = {}
     scores = {}
-    for i, row in tqdm(df.iterrows()):
-        text = row["text"]
+    for i, (text, source) in tqdm(texts.items()):
         x = ngram_fn(text)
-        j = df_to_source_index[i]
 
-        source = preprocess_fn(source_df.loc[j, "text"])
+        source = preprocess_fn(source)
 
         replace = replace_candidates[i]
         y = apply_replacements(source, replace, postprocess_fn)
@@ -413,7 +407,7 @@ def prune_spell_check_candidates(
                 replace = [rep for remove, rep in zip(removes, replace) if not remove]
                 y = apply_replacements(source, replace, postprocess_fn)
                 score = score_fn(x, ngram_fn(y))
-        
+
         # remove no-ops
         y = source
         removes = []
@@ -443,3 +437,219 @@ def load_memoize_candidates(file):
         y = json.load(fp)
     x = {k: set(v) if v is not None else None for k, v in y.items()}
     return x
+
+
+def get_word_freqs(sources, preprocess_fn, words_re):
+    word_freqs = Counter()
+    for source in tqdm(sources):
+        source = preprocess_fn(source)
+        word_freqs.update([s.lower() for s in words_re.findall(source)])
+
+    return word_freqs
+
+
+def prefix_match(a, b):
+    a = a.lower()
+    b = b.lower()
+    c = min(len(a), len(b))
+    return a[:c] == b[:c]
+
+
+@dataclass
+class CandData:
+    distance: int
+    freq: float
+
+    def __str__(self):
+        return str((self.distance, round(self.freq, 5)))
+
+
+@dataclass
+class WordData:
+    word: str
+    next_word: Optional[str]
+    maybe: bool
+    first_char_match: bool
+    last_char_match: bool
+    last_char: str
+    freq: float
+    min_freq: float
+    max_freq: float
+    distance: int
+    index: int
+    index_frac: float
+    char_start: int
+    char_start_frac: float
+    cands: Dict[str, CandData]
+
+    def __str__(self):
+        contents = [
+            str(x)
+            for x in (
+                self.word,
+                self.next_word,
+                1 if self.maybe else 0,
+                (self.first_char_match, self.last_char_match, self.last_char),
+                (round(self.freq, 5), round(self.min_freq, 5), round(self.max_freq, 5)),
+                self.distance,
+                (self.index, round(self.index_frac, 5)),
+                (self.char_start, round(self.char_start_frac, 5)),
+                ", ".join(f"({k}, {v})" for k, v in self.cands.items()),
+            )
+        ]
+        contents = ", ".join(contents)
+        return f"({contents})"
+
+
+@dataclass
+class EssayData:
+    words: List[WordData]
+    total_chars: int
+    total_words: int
+    cutoff_range: Tuple[int, int]
+    cutoff_char_range: Tuple[int, int]
+    cutoff_word_range: Tuple[int, int]
+    cutoff_range_frac: Tuple[float, float]
+    cutoff_char_range_frac: Tuple[float, float]
+    cutoff_word_range_frac: Tuple[float, float]
+
+    def __str__(self):
+        summary = [
+            str(x)
+            for x in (
+                self.total_chars,
+                self.total_words,
+                self.cutoff_range,
+                self.cutoff_char_range,
+                self.cutoff_word_range,
+                self.cutoff_range_frac,
+                self.cutoff_char_range_frac,
+                self.cutoff_word_range_frac,
+            )
+        ]
+        summary = ", ".join(summary)
+        contents = "\n".join(str(x) for x in self.words)
+        return f"EssayData: {summary}\n{contents}"
+
+
+class CandDataGetter:
+    def __init__(self, spell, memoize_candidates):
+        self.spell = spell
+        self.memoize_candidates = memoize_candidates
+
+    def __call__(self, word):
+        memoize_candidates = self.memoize_candidates
+        spell = self.spell
+        if word.lower() not in memoize_candidates:
+            memoize_candidates[word.lower()] = spell.candidates(word.lower())
+        cands = memoize_candidates[word.lower()]
+        if cands is None:
+            return None
+        spell.distance = 1
+        cands_1 = spell.candidates(word.lower()) or set()
+        spell.distance = 2
+        total_freq = sum(spell[next_word] for next_word in cands)
+
+        cands_data = {
+            w: CandData(1, spell[w] / total_freq)
+            if w in cands_1
+            else CandData(2, spell[w] / total_freq)
+            for w in cands
+        }
+        return cands_data
+
+
+def analyze_text(
+    source, text, replace, words_re, spell: SpellChecker, memoize_candidates
+) -> EssayData:
+    words, char_starts = zip(*((m[0], m.start(0)) for m in words_re.finditer(source)))
+    total_chars = len(source)
+    total_words = len(words)
+    unknown = spell.unknown(words)
+    seen = set()
+    replace_checks = set()
+    cander = CandDataGetter(spell, memoize_candidates)
+
+    words_data = []
+    for index, word in enumerate(words):
+        if word in seen:
+            continue
+        seen.add(word)
+
+        if word.lower() not in unknown:
+            continue
+        if word.isupper():
+            continue
+        cands_data = cander(word)
+        if cands_data is None:
+            continue
+        next_word = replace.get(word)
+        maybe = next_word is None and any(w in word for w in replace_checks)
+        if replace.get(word) is not None:
+            replace_checks.add(word)
+
+        # distance will always be the same because spellchecker searches one at a time.
+        distance = min(c.distance for c in cands_data.values())
+        min_freq = min(c.freq for c in cands_data.values())
+        max_freq = max(c.freq for c in cands_data.values())
+        freq = 1.0 if next_word is None else cands_data[next_word].freq
+        words_data.append(
+            WordData(
+                word,
+                next_word,
+                maybe,
+                word[0].lower() == next_word[0] if next_word is not None else None,
+                word[-1].lower() == next_word[-1] if next_word is not None else None,
+                next_word[-1] if next_word is not None else "",
+                freq,
+                min_freq,
+                max_freq,
+                distance,
+                index,
+                index / total_words,
+                char_starts[index],
+                char_starts[index] / total_chars,
+                cands_data,
+            )
+        )
+    # range(cutoff) partitions words_data into feasible and unfeasible words
+    # lower_bound = last confirmed word, upper_bound = first confirmed 1 cand miss
+    # cutoff is between [cutoff_a, cutoff_b]
+    a = max((i + 1 for i, w in enumerate(words_data) if w.next_word), default=0)
+    is_miss = lambda w: not w.next_word and not w.maybe and len(w.cands) == 1
+    b = min(
+        (i for i, w in enumerate(words_data) if is_miss(w)), default=len(words_data)
+    )
+    b += 1
+    a_word = words_data[a - 1].index + 1 if a > 0 else 0
+    b_word = words_data[b - 1].index + 1 if b - 1 < len(words_data) else total_words + 1
+    a_char = words_data[a - 1].char_start + len(words_data[a - 1].word) if a > 0 else 0
+    b_char = (
+        words_data[b - 1].char_start if b - 1 < len(words_data) else total_chars + 1
+    )
+    return EssayData(
+        words_data,
+        total_chars,
+        total_words,
+        (a, b),
+        (a_char, b_char),
+        (a_word, b_word),
+        (a / (len(words_data) or 1), (b - 1) / (len(words_data) or 1)),
+        (a_char / total_chars, (b_char - 1) / total_chars),
+        (a_word / total_words, (b_word - 1) / total_words),
+    )
+
+
+def analyze_texts(match_texts, results, replacements, preprocess_fn, words_re, spell, memoize_candidates):
+    all_data = {}
+    skipped = set()
+    for i, (text, source) in tqdm(match_texts.items()):
+        if results[i] != text:
+            skipped.add(i)
+            continue
+        source = preprocess_fn(source)
+        replace = {word: next_word for word, next_word in replacements[i]}
+
+        data = analyze_text(source, text, replace, words_re, spell, memoize_candidates)
+        all_data[i] = data
+    return all_data, skipped
