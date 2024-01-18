@@ -2,6 +2,7 @@ import re
 from collections import Counter, defaultdict
 import json
 import heapq
+import random
 
 import numpy as np
 import pandas as pd
@@ -448,6 +449,15 @@ def get_word_freqs(sources, preprocess_fn, words_re):
     return word_freqs
 
 
+def get_word_freqs_set(sources, preprocess_fn, words_re):
+    word_freqs = Counter()
+    for source in tqdm(sources):
+        source = preprocess_fn(source)
+        word_freqs.update(set(s.lower() for s in words_re.findall(source)))
+
+    return word_freqs
+
+
 def prefix_match(a, b):
     a = a.lower()
     b = b.lower()
@@ -559,6 +569,33 @@ class CandDataGetter:
         return cands_data
 
 
+class FreqGetter:
+    def __init__(self, word_freqs, memoize_candidates):
+        self.word_freqs = word_freqs
+        self.memoize_candidates = memoize_candidates
+
+    def __call__(self, word, include_word=False, prior=0):
+        memoize_candidates = self.memoize_candidates
+        word_freqs = self.word_freqs
+        if word.lower() not in memoize_candidates:
+            raise RuntimeError("No candidate: ", word.lower())
+        cands = memoize_candidates[word.lower()]
+        if cands is None:
+            return None
+        freqs = {w: word_freqs[w] if w in word_freqs else prior for w in cands}
+        if include_word:
+            freqs[word] = (
+                word_freqs[word.lower()] if word.lower() in word_freqs else prior
+            )
+
+        total_freq = sum(freqs.values())
+        if total_freq == 0:
+            freqs = {k: 1 / len(freqs) for k in freqs}
+        else:
+            freqs = {k: v / total_freq for k, v in freqs.items()}
+        return freqs
+
+
 def analyze_text(
     source, text, replace, words_re, spell: SpellChecker, memoize_candidates
 ) -> EssayData:
@@ -640,7 +677,15 @@ def analyze_text(
     )
 
 
-def analyze_texts(match_texts, results, replacements, preprocess_fn, words_re, spell, memoize_candidates):
+def analyze_texts(
+    match_texts,
+    results,
+    replacements,
+    preprocess_fn,
+    words_re,
+    spell,
+    memoize_candidates,
+):
     all_data = {}
     skipped = set()
     for i, (text, source) in tqdm(match_texts.items()):
@@ -653,3 +698,55 @@ def analyze_texts(match_texts, results, replacements, preprocess_fn, words_re, s
         data = analyze_text(source, text, replace, words_re, spell, memoize_candidates)
         all_data[i] = data
     return all_data, skipped
+
+
+def augment_random(
+    text,
+    preprocess_fn,
+    postprocess_fn,
+    words_re: re.Pattern,
+    spell: SpellChecker,
+    freq_getter,
+    memoize_candidates,
+    rand: random.Random,
+    quota_prob=0.5,
+    word_base_base_prob=0.4,
+    word_base_scaling=1,
+    proper_noun_base_prob=0.65,
+    proper_noun_scaling=3,
+):
+    text = preprocess_fn(text)
+    words = words_re.findall(text)
+
+    unknown = spell.unknown(words)
+    words = uniquify(words)
+    words = [word for word in words if word.lower() in unknown and not word.isupper()]
+    for word in words:
+        if word.lower() not in memoize_candidates:
+            memoize_candidates[word.lower()] = spell.candidates(word.lower())
+    words = [word for word in words if memoize_candidates[word.lower()] is not None]
+
+    quota = sum(rand.random() < quota_prob for _ in range(len(words)))
+
+    replace = []
+    for index, word in enumerate(words):
+        if len(replace) >= quota:
+            break
+        cands = memoize_candidates[word.lower()]
+        if len(cands) == 1:
+            replace.append((word, list(cands)[0]))
+            continue
+
+        freqs = freq_getter(word, include_word=True)
+        prob_check = proper_noun_base_prob if word[0].isupper() else word_base_base_prob
+        prob_scaling = proper_noun_scaling if word[0].isupper() else word_base_scaling
+        prob_check += prob_scaling * freqs.get(word, 0.0)
+        if rand.random() < prob_check:
+            continue
+
+        next_words, weights = zip(*[(k, v) for k, v in freqs.items() if k != word])
+        next_word = random.choices(next_words, weights)[0]
+        replace.append((word, next_word))
+
+    text = apply_replacements(text, replace, postprocess_fn)
+    return text, replace
