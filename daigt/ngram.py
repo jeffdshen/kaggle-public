@@ -2,7 +2,7 @@ import re
 from collections import Counter, defaultdict
 import json
 import heapq
-import random
+from random import Random
 
 import numpy as np
 import pandas as pd
@@ -708,7 +708,7 @@ def augment_random(
     spell: SpellChecker,
     freq_getter,
     memoize_candidates,
-    rand: random.Random,
+    rand: Random,
     quota_prob=0.5,
     word_base_base_prob=0.4,
     word_base_scaling=1,
@@ -745,7 +745,7 @@ def augment_random(
             continue
 
         next_words, weights = zip(*[(k, v) for k, v in freqs.items() if k != word])
-        next_word = random.choices(next_words, weights)[0]
+        next_word = rand.choices(next_words, weights)[0]
         replace.append((word, next_word))
 
     text = apply_replacements(text, replace, postprocess_fn)
