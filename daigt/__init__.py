@@ -1,6 +1,6 @@
 from .utils import set_seed
 
-from .datasets import (
+from .data import (
     get_dfs,
     get_block_dataset,
 )
