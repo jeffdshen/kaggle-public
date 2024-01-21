@@ -323,7 +323,7 @@ def train(fold, train_dataset, valid_dataset, config, wandb):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     register_optimizer(model, config)
     model = model.to(device)
-    model = torch.compile(model)
+    # model = torch.compile(model)
 
     optimizer = get_optimizer(model, config)
     scheduler = get_linear_warmup_power_decay_scheduler(
