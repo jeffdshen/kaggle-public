@@ -293,7 +293,7 @@ def get_daigt_dataset(dataset, tokenizer, config, shuffle, valid):
     loader = DataLoader(
         dataset,
         shuffle=shuffle,
-        num_workers=4,
+        num_workers=2,
         batch_size=batch_size,
         collate_fn=dataset.get_collate_fn(),
     )

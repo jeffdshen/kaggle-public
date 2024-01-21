@@ -109,6 +109,7 @@ class DaigtDataset(Dataset):
             max_length=self.max_len,
             return_tensors="pt",
             pad_to_multiple_of=self.pad_to_multiple_of,
+            stride=self.stride,
         )
         return inputs
 
