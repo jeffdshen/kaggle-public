@@ -29,6 +29,9 @@ def get_dfs(path_map):
         "train": pd.read_csv(path_map["train"] / "train_essays.csv"),
         "test": pd.read_csv(path_map["test"] / "test_essays.csv"),
     }
+    for k, v in path_map.items():
+        if k not in dfs:
+            dfs[k] = pd.read_csv(v)
     return dfs
 
 
