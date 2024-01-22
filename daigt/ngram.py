@@ -377,6 +377,15 @@ def apply_replacements(source, replace, postprocess_fn):
     return y
 
 
+def apply_word_replacements(source, replace, postprocess_fn):
+    y = source
+    for word, next_word in replace:
+        pattern = "\\b" + re.escape(word) + "\\b"
+        y = re.sub(pattern, next_word, y)
+    y = postprocess_fn(y)
+    return y
+
+
 def prune_spell_check_candidates(
     texts,
     score_fn,
@@ -698,6 +707,122 @@ def analyze_texts(
         data = analyze_text(source, text, replace, words_re, spell, memoize_candidates)
         all_data[i] = data
     return all_data, skipped
+
+
+def get_word_form(sources, preprocess_fn, words_re):
+    word_form_freq = defaultdict(Counter)
+    for source in tqdm(sources):
+        source = preprocess_fn(source)
+        words = [(s.lower(), s) for s in words_re.findall(source)]
+        for word, form in words:
+            word_form_freq[word][form] += 1
+
+    return word_form_freq
+
+
+def get_ngram_word_freqs(sources, preprocess_fn, words_re, n):
+    ngram_freqs = Counter()
+    for source in tqdm(sources):
+        source = preprocess_fn(source)
+        words = [s.lower() for s in words_re.findall(source)]
+        grams = zip(*[words[i:] for i in range(n)])
+        ngram_freqs.update(grams)
+
+    return ngram_freqs
+
+class NgramFreqGetter:
+    def __init__(self, ngram_freqs, word_freqs, form_freqs, memoize_candidates):
+        self.ngram_freqs = ngram_freqs
+        self.word_freqs = word_freqs
+        self.form_freqs = form_freqs
+        self.memoize_candidates = memoize_candidates
+
+    def __call__(self, prev_words, word):
+        memoize_candidates = self.memoize_candidates
+        ngram_freqs = self.ngram_freqs
+        word_freqs = self.word_freqs
+        form_freqs = self.form_freqs
+    
+        if word.lower() not in memoize_candidates:
+            raise RuntimeError("No candidate: ", word.lower())
+        cands = memoize_candidates[word.lower()]
+        if cands is None:
+            return None
+        
+        freqs = {}
+        for w in cands + [word.lower()]:
+            forms = form_freqs[w]
+            total = forms.total()
+            if total == 0:
+                continue
+            freq = ngram_freqs.get(prev_words + (w,), 0)
+            if freq == 0:
+                continue
+            for form, v in forms.items():
+                if v == 0:
+                    continue
+                freqs[form] = freq * v / total
+
+        if len(freqs) != 0:
+            total_freq = sum(freqs.values())
+            return {k: v / total_freq for k, v in freqs.items()}
+
+        for w in cands + [word.lower()]:
+            forms = form_freqs[w]
+            total = forms.total()
+            if total == 0:
+                continue
+            freq = word_freqs.get(w, 0)
+            if freq == 0:
+                continue
+            for form, v in forms.items():
+                if v == 0:
+                    continue
+                freqs[form] = freq * v / total
+            
+        total_freq = sum(freqs.values())
+        return {k: v / total_freq for k, v in freqs.items()}
+
+
+def augment_ngram(  
+    text,
+    preprocess_fn,
+    postprocess_fn,
+    words_re: re.Pattern,
+    spell: SpellChecker,
+    ngram_freq_getter: NgramFreqGetter,
+    memoize_candidates,
+    rand: Random,
+    n,
+):
+    text = preprocess_fn(text)
+    words = words_re.findall(text)
+
+    unknown = spell.unknown(words)
+    replace = []
+    seen = set()
+    for index, word in enumerate(words):
+        if word.lower() not in unknown:
+            continue
+        if word.isupper():
+            continue
+        if word in seen:
+            continue
+        seen.add(word)
+        if word.lower() not in memoize_candidates:
+            memoize_candidates[word.lower()] = spell.candidates(word.lower())
+        cands = memoize_candidates[word.lower()]
+        if cands is None:
+            continue
+
+        freqs = ngram_freq_getter(words[(index - n + 1):index], word)
+
+        next_words, weights = zip(*[(k, v) for k, v in freqs.items()])
+        next_word = rand.choices(next_words, weights)[0]
+        replace.append((word, next_word))
+
+    text = apply_word_replacements(text, replace, postprocess_fn)
+    return text, replace
 
 
 def augment_random(
