@@ -756,7 +756,7 @@ class NgramFreqGetter:
             total = forms.total()
             if total == 0:
                 continue
-            freq = ngram_freqs.get(prev_words + (w,), 0)
+            freq = ngram_freqs.get((*prev_words, w), 0)
             if freq == 0:
                 continue
             for form, v in forms.items():
