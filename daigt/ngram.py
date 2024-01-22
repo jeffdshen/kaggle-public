@@ -750,7 +750,8 @@ class NgramFreqGetter:
             return None
         
         freqs = {}
-        for w in cands + [word.lower()]:
+        all_cands = [*cands, word.lower()]
+        for w in all_cands:
             forms = form_freqs[w]
             total = forms.total()
             if total == 0:
@@ -767,7 +768,7 @@ class NgramFreqGetter:
             total_freq = sum(freqs.values())
             return {k: v / total_freq for k, v in freqs.items()}
 
-        for w in cands + [word.lower()]:
+        for w in all_cands:
             forms = form_freqs[w]
             total = forms.total()
             if total == 0:
