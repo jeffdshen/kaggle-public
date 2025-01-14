@@ -10,13 +10,12 @@ async function loadAndRenderMath() {
     const content = document.getElementById('content');
     content.innerHTML = '';
 
-    const questionGroups = groupRecordsByQuestion(records);
-    for (const [id, group] of Object.entries(questionGroups)) {
+    const questionGroups = Object.entries(groupRecordsByQuestion(records))
+        .sort(([a], [b]) => a.localeCompare(b));
+
+    for (const [id, group] of questionGroups) {
         content.appendChild(renderQuestionGroup(group));
     }
-
-    // Render math in the newly added content
-    // renderMathInElement(document.body);
 }
 
 async function loadAndRender() {
