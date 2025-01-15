@@ -1,3 +1,4 @@
+from collections.abc import Generator
 from dataclasses import asdict, dataclass, field
 import json
 import time
@@ -8,7 +9,7 @@ import polars as pl
 from transformers import PreTrainedTokenizer, PreTrainedTokenizerFast
 from vllm import LLM, RequestOutput, SamplingParams
 
-from .postprocess import convert_texts_to_int, extract_boxed_texts, max_weighted_vote
+from postprocess import convert_texts_to_int, extract_boxed_texts, max_weighted_vote
 
 HFTokenizer = Union[PreTrainedTokenizer, PreTrainedTokenizerFast]
 
@@ -100,6 +101,12 @@ SAMPLING_PARAMS = {
         max_tokens=32768,
         seed=42,
     ),
+    "greedy_short": SamplingParams(
+        temperature=0.0,
+        skip_special_tokens=True,
+        max_tokens=8192,
+        seed=42,
+    ),
 }
 
 SYSTEM_PARAMS_LIST = [
@@ -163,29 +170,49 @@ class MetaLLM:
     llm: LLM
     system_params: list[SystemParams]
     question_log: TextIO | None = None
-    time_per_question: float = 0.0
-    full_timeout: float = 0.0
+    time_per_question: float | None = None
+    full_timeout: float | None = None
+    start_time: float = field(default=time.time())
     correct_answers: dict[str, int] = field(default_factory=dict)
 
     def __post_init__(self):
-        self.start_time = time.time()
         self.num_questions = 0
 
-    def predict_question(self, id_: str, question: str) -> int:
-        time_elapsed = time.time() - self.start_time
-        self.num_questions += 1
-        if time_elapsed > self.full_timeout:
-            return 0
-
+    def _batch_generate(
+        self, batched_requests: list[list[RequestInput]]
+    ) -> list[list[RequestOutput]]:
         request_inputs = [
-            system_params.to_request_input().add_user_message(question)
-            for system_params in self.system_params
+            request for requests in batched_requests for request in requests
         ]
         prompts = get_prompts(request_inputs, self.llm)
         sampling_params = [
             request_input.sampling_params for request_input in request_inputs
         ]
         request_outputs = self.llm.generate(prompts, sampling_params=sampling_params)
+
+        if len(request_inputs) != len(request_outputs):
+            raise ValueError(f"{len(request_inputs)=} != {len(request_outputs)=}")
+
+        output_iter = iter(request_outputs)
+        batched_outputs: list[list[RequestOutput]] = []
+        for requests in batched_requests:
+            batched_outputs.append([next(output_iter) for _ in requests])
+        return batched_outputs
+
+    def _predict(
+        self, id_: str, question: str
+    ) -> Generator[list[RequestInput], list[RequestOutput], int]:
+        time_elapsed = time.time() - self.start_time
+        self.num_questions += 1
+        if self.full_timeout is not None and time_elapsed > self.full_timeout:
+            return 0
+
+        request_inputs = [
+            system_params.to_request_input().add_user_message(question)
+            for system_params in self.system_params
+        ]
+        request_outputs: list[RequestOutput] = yield request_inputs
+        assert len(request_outputs) == len(request_inputs)
         boxed = [
             extract_boxed_texts(request_output.outputs[0].text)
             for request_output in request_outputs
@@ -199,7 +226,7 @@ class MetaLLM:
                     RequestLogRecord(
                         id=id_,
                         system_name=self.system_params[i].name,
-                        input_text=prompts[i],
+                        input_text=request_output.prompt or "",
                         output_text=request_output.outputs[0].text,
                         answers=answers[i],
                         correct_answer=self.correct_answers.get(id_),
@@ -208,10 +235,45 @@ class MetaLLM:
                 self.question_log.write("\n")
         return max_weighted_vote(answers)
 
+    def _predict_runner(self, ids: list[str], questions: list[str]) -> list[int]:
+        predict_gens = [
+            self._predict(id_, question) for id_, question in zip(ids, questions)
+        ]
+        answers: list[int] = [0] * len(ids)
+        total_answers = 0
+        request_inputs: list[list[RequestInput]] = []
+        for i, predict_gen in enumerate(predict_gens):
+            try:
+                request_inputs.append(next(predict_gen))
+            except StopIteration as e:
+                assert isinstance(e.value, int)
+                answers[i] = e.value
+                total_answers += 1
+                request_inputs.append([])
+
+        while total_answers < len(ids):
+            request_outputs = self._batch_generate(request_inputs)
+
+            request_inputs = []
+            for i, (request_output, predict_gen) in enumerate(
+                zip(request_outputs, predict_gens)
+            ):
+                if not request_output:
+                    request_inputs.append([])
+                    continue
+
+                try:
+                    request_inputs.append(predict_gen.send(request_output))
+                except StopIteration as e:
+                    assert isinstance(e.value, int)
+                    answers[i] = e.value
+                    total_answers += 1
+                    request_inputs.append([])
+
+        return answers
+
     def predict(
-        self, id_: pl.DataFrame, question: pl.DataFrame
-    ) -> pl.DataFrame | pd.DataFrame:
-        id_item = id_.item(0)
-        question_item = question.item(0)
-        answer = self.predict_question(id_item, question_item)
-        return pl.DataFrame({"id": id_item, "answer": answer})
+        self, id_: pl.Series, question: pl.Series
+    ) -> pl.DataFrame:
+        answers = self._predict_runner(id_.to_list(), question.to_list())
+        return pl.DataFrame({"id": id_, "answer": answers})
