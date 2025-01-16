@@ -14,7 +14,7 @@ def load_qwq(model: str) -> LLM:
         max_model_len=32768,
         trust_remote_code=True,
         tensor_parallel_size=4,
-        gpu_memory_utilization=0.96,
+        gpu_memory_utilization=0.9,
     )
     return llm
 
