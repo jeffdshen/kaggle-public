@@ -9,7 +9,7 @@ import polars as pl
 from transformers import PreTrainedTokenizer, PreTrainedTokenizerFast
 from vllm import LLM, RequestOutput, SamplingParams
 
-from postprocess import convert_texts_to_int, extract_boxed_texts, max_weighted_vote
+from .postprocess import convert_texts_to_int, extract_boxed_texts, max_weighted_vote
 
 HFTokenizer = Union[PreTrainedTokenizer, PreTrainedTokenizerFast]
 
@@ -135,6 +135,7 @@ SYSTEM_PARAMS_LIST = [
         message="You are the smartest maths expert in the world, please spike this question and put the answer in \\boxed{}.",
         sampling_params=SAMPLING_PARAMS["min_p"],
     ),
+
 ]
 SYSTEM_PARAMS = {
     system_params.name: system_params for system_params in SYSTEM_PARAMS_LIST

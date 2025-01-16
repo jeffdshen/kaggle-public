@@ -1,6 +1,6 @@
 import pytest
 
-from postprocess import convert_texts_to_int, extract_boxed_texts, max_weighted_vote
+from .postprocess import convert_texts_to_int, extract_boxed_texts, max_weighted_vote
 
 
 @pytest.mark.parametrize(

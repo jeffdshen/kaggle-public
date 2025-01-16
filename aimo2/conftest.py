@@ -1,6 +1,6 @@
 import sys
 
-from vllm_mock import CompletionOutput, LLM, RequestOutput, SamplingParams
+from .vllm_mock import CompletionOutput, LLM, RequestOutput, SamplingParams
 
 module = type(sys)("vllm")
 module.LLM = LLM

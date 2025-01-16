@@ -3,9 +3,10 @@ from unittest.mock import MagicMock
 
 import polars as pl
 import pytest
-from predict import SAMPLING_PARAMS, MetaLLM, RequestInput, SystemParams, get_prompts
 from transformers import AutoTokenizer, ByT5Tokenizer
 from vllm import LLM, CompletionOutput, RequestOutput
+
+from .predict import SAMPLING_PARAMS, MetaLLM, RequestInput, SystemParams, get_prompts
 
 
 def test_request_input():
