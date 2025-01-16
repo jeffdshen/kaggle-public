@@ -69,7 +69,7 @@ class SystemParams:
     name: str
     """The name of the system prompt."""
 
-    message: str
+    message: str | None
     """The message of the system prompt."""
 
     sampling_params: SamplingParams
@@ -79,6 +79,8 @@ class SystemParams:
         request_input = RequestInput(
             sampling_params=self.sampling_params,
         )
+        if self.message is None:
+            return request_input
         return request_input.add_system_message(self.message)
 
 
@@ -135,8 +137,34 @@ SYSTEM_PARAMS_LIST = [
         message="You are the smartest maths expert in the world, please spike this question and put the answer in \\boxed{}.",
         sampling_params=SAMPLING_PARAMS["min_p"],
     ),
-
+    SystemParams(
+        name="default_v1", message=None, sampling_params=SAMPLING_PARAMS["greedy_short"]
+    ),
+    SystemParams(
+        name="default_v2", message=None, sampling_params=SAMPLING_PARAMS["greedy"]
+    ),
+    SystemParams(
+        name="default_v3",
+        message="You are a helpful and harmless assistant. "
+        "You are Qwen developed by Alibaba. "
+        "You should think step-by-step. "
+        "If uncertain, answer \\boxed{N/A}.",
+        sampling_params=SAMPLING_PARAMS["greedy_short"],
+    ),
+    SystemParams(
+        name="think_v1",
+        message="Think step-by-step. Put the answer in \\boxed{}.",
+        sampling_params=SAMPLING_PARAMS["greedy_short"],
+    ),
+    SystemParams(
+        name="think_v2",
+        message="Think step-by-step. Put the answer in \\boxed{}. "
+        "If uncertain, answer \\boxed{N/A}.",
+        sampling_params=SAMPLING_PARAMS["greedy_short"],
+    ),
 ]
+
+
 SYSTEM_PARAMS = {
     system_params.name: system_params for system_params in SYSTEM_PARAMS_LIST
 }
@@ -273,8 +301,6 @@ class MetaLLM:
 
         return answers
 
-    def predict(
-        self, id_: pl.Series, question: pl.Series
-    ) -> pl.DataFrame:
+    def predict(self, id_: pl.Series, question: pl.Series) -> pl.DataFrame:
         answers = self._predict_runner(id_.to_list(), question.to_list())
         return pl.DataFrame({"id": id_, "answer": answers})
