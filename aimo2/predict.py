@@ -1,4 +1,4 @@
-from collections.abc import Generator
+from collections.abc import Generator, Sequence
 from dataclasses import asdict, dataclass, field
 import json
 import time
@@ -190,6 +190,9 @@ class RequestLogRecord:
     correct_answer: int | None
     """The correct answer of the question."""
 
+    token_ids: Sequence[int]
+    """The token ids of the output text."""
+
     def to_json(self) -> str:
         return json.dumps(asdict(self))
 
@@ -259,6 +262,7 @@ class MetaLLM:
                         output_text=request_output.outputs[0].text,
                         answers=answers[i],
                         correct_answer=self.correct_answers.get(id_),
+                        token_ids=request_output.outputs[0].token_ids,
                     ).to_json()
                 )
                 self.question_log.write("\n")
