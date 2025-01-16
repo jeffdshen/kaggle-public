@@ -43,7 +43,7 @@ class ValidationData:
 
         df = pl.concat([aime_df, reference_df], how="vertical")
         return df
-    
+
     @cached_property
     def correct_answers(self) -> dict[str, int]:
         return dict(self.df.select("id", "answer").iter_rows())
@@ -67,10 +67,17 @@ def get_reference_df():
 
 
 def get_aime_df():
-    """Returns the AIME dataset. Requires internet access."""
-    return pl.read_parquet(
-        "hf://datasets/AI-MO/aimo-validation-aime/data/train-00000-of-00001.parquet"
-    )
+    """Returns the AIME dataset from NuminaMath."""
+    if ENV == "kaggle":
+        return pl.read_parquet(
+            "/kaggle/input/ai-mo-aimo-validation-aime/data/train-00000-of-00001.parquet"
+        )
+    elif ENV in ["local", "colab"]:
+        return pl.read_parquet(
+            "hf://datasets/AI-MO/aimo-validation-aime/data/train-00000-of-00001.parquet"
+        )
+    else:
+        raise ValueError("Unknown environment")
 
 
 def get_validation_data():
