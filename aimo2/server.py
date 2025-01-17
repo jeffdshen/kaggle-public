@@ -12,6 +12,7 @@ def load_qwq(model: str) -> LLM:
     llm = LLM(
         model,
         max_model_len=32768,
+        max_num_seqs=32,
         trust_remote_code=True,
         tensor_parallel_size=4,
         gpu_memory_utilization=0.9,
