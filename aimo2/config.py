@@ -1,10 +1,13 @@
 """Config for AIMO2. This is setup for my specific configuration."""
 
-from functools import cached_property
 import os
 from dataclasses import dataclass
+from functools import cached_property
 
 import polars as pl
+from vllm import SamplingParams
+
+from .systems import SystemParams
 
 
 def get_environment() -> str:
@@ -82,3 +85,112 @@ def get_aime_df():
 
 def get_validation_data():
     return ValidationData(get_reference_df(), get_aime_df())
+
+
+def load_llm(model: str):
+    from vllm import LLM
+
+    llm = LLM(
+        model,
+        max_model_len=32768,
+        max_num_seqs=32,
+        trust_remote_code=True,
+        tensor_parallel_size=4,
+        gpu_memory_utilization=0.9,
+    )
+    return llm
+
+
+MODELS = {
+    "qwen-72b-instruct-awq": "/kaggle/input/qwen2.5/transformers/72b-instruct-awq/1",
+    "qwq-32b-preview": "/kaggle/input/qwq-32b-preview/transformers/default/1",
+    "qwq-32b-preview-awq": "/kaggle/input/m/shelterw/qwen2.5/transformers/qwq-32b-preview-awq/1",
+    "deepseek-r1-distill-qwen-32b": "/kaggle/input/deepseek-r1/transformers/deepseek-r1-distill-qwen-32b/1",
+    "deepseek-r1-distill-qwen-32b-awq": "/kaggle/input/deepseek-r1/transformers/deepseek-r1-distill-qwen-32b-awq/1",
+}
+
+
+SAMPLING_PARAMS = {
+    "min_p": SamplingParams(
+        min_p=0.01,
+        skip_special_tokens=True,
+        max_tokens=32768,
+        seed=42,
+    ),
+    "uniform": SamplingParams(
+        temperature=1.0,
+        skip_special_tokens=True,
+        max_tokens=32768,
+        seed=42,
+    ),
+    "greedy": SamplingParams(
+        temperature=0.0,
+        skip_special_tokens=True,
+        max_tokens=32768,
+        seed=42,
+    ),
+    "greedy_short": SamplingParams(
+        temperature=0.0,
+        skip_special_tokens=True,
+        max_tokens=8192,
+        seed=42,
+    ),
+}
+
+SYSTEM_PARAMS_LIST = [
+    SystemParams(
+        name="v1",
+        message="Please use chained reasoning to put the answer in \\boxed{}.",
+        sampling_params=SAMPLING_PARAMS["min_p"],
+    ),
+    SystemParams(
+        name="v2",
+        message="Please reflect and verify while reasoning and put the answer in \\boxed{}.",
+        sampling_params=SAMPLING_PARAMS["min_p"],
+    ),
+    SystemParams(
+        name="v3",
+        message="Solve the following problem using concise and clear reasoning by placing the answer in \\boxed{}.",
+        sampling_params=SAMPLING_PARAMS["min_p"],
+    ),
+    SystemParams(
+        name="v4",
+        message="You are a helpful and reflective maths assistant, please reason step by step to put the answer in \\boxed{}.",
+        sampling_params=SAMPLING_PARAMS["min_p"],
+    ),
+    SystemParams(
+        name="v5",
+        message="You are the smartest maths expert in the world, please spike this question and put the answer in \\boxed{}.",
+        sampling_params=SAMPLING_PARAMS["min_p"],
+    ),
+    SystemParams(
+        name="default_v1", message=None, sampling_params=SAMPLING_PARAMS["greedy_short"]
+    ),
+    SystemParams(
+        name="default_v2", message=None, sampling_params=SAMPLING_PARAMS["greedy"]
+    ),
+    SystemParams(
+        name="default_v3",
+        message="You are a helpful and harmless assistant. "
+        "You are Qwen developed by Alibaba. "
+        "You should think step-by-step. "
+        "If uncertain, answer \\boxed{N/A}.",
+        sampling_params=SAMPLING_PARAMS["greedy_short"],
+    ),
+    SystemParams(
+        name="think_v1",
+        message="Think step-by-step. Put the answer in \\boxed{}.",
+        sampling_params=SAMPLING_PARAMS["greedy_short"],
+    ),
+    SystemParams(
+        name="think_v2",
+        message="Think step-by-step. Put the answer in \\boxed{}. "
+        "If uncertain, answer \\boxed{N/A}.",
+        sampling_params=SAMPLING_PARAMS["greedy_short"],
+    ),
+]
+
+
+SYSTEM_PARAMS = {
+    system_params.name: system_params for system_params in SYSTEM_PARAMS_LIST
+}

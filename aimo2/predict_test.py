@@ -4,43 +4,10 @@ from unittest.mock import MagicMock
 import polars as pl
 import pytest
 from transformers import AutoTokenizer, ByT5Tokenizer
-from vllm import LLM, CompletionOutput, RequestOutput
+from vllm import LLM, CompletionOutput, RequestOutput, SamplingParams
 
-from .predict import SAMPLING_PARAMS, MetaLLM, RequestInput, SystemParams, get_prompts
-
-
-def test_request_input():
-    request_input = RequestInput()
-    request_input = request_input.add_system_message("You are a helpful assistant.")
-
-    request_input = request_input.add_user_message("Hello, how are you?")
-    request_input = request_input.add_request_output(
-        RequestOutput(
-            request_id="1",
-            prompt="Hello, how are you?",
-            prompt_token_ids=[1, 2, 3],
-            prompt_logprobs=None,
-            outputs=[
-                CompletionOutput(
-                    index=0,
-                    text="Good and you?",
-                    token_ids=[1, 2, 3],
-                    cumulative_logprob=0.1,
-                    logprobs=None,
-                    finish_reason="stop",
-                    stop_reason=None,
-                )
-            ],
-            finished=True,
-        )
-    )
-    request_input = request_input.with_seed(123)
-    assert request_input.conversation == [
-        {"role": "system", "content": "You are a helpful assistant."},
-        {"role": "user", "content": "Hello, how are you?"},
-        {"role": "assistant", "content": "Good and you?"},
-    ]
-    assert request_input.sampling_params.seed == 123
+from .predict import MetaLLM, RequestInput, get_prompts
+from .systems import SystemParams, WeightedEnsemble
 
 
 # Simplified chat template derived from https://huggingface.co/Qwen/QwQ-32B-Preview.
@@ -158,25 +125,19 @@ def test_meta_llm():
             (["100 + 23?", "Program it!"], "```python\n100 + 23\n```"),
         ]
     )
-    meta_llm = MetaLLM(
-        llm=llm,
+
+    greedy = SamplingParams(temperature=0.0, seed=42)
+    system = WeightedEnsemble(
         system_params=[
-            SystemParams(
-                name="v0.0",
-                message="Box it!",
-                sampling_params=SAMPLING_PARAMS["greedy"],
-            ),
-            SystemParams(
-                name="v0.1",
-                message="Program it!",
-                sampling_params=SAMPLING_PARAMS["greedy"],
-            ),
+            SystemParams(name="v0.0", message="Box it!", sampling_params=greedy),
+            SystemParams(name="v0.1", message="Program it!", sampling_params=greedy),
         ],
         correct_answers={
             "a": 123,
             "b": 456,
         },
     )
+    meta_llm = MetaLLM(llm=llm, system=system)
 
     result = meta_llm.predict(
         id_=pl.Series(["a", "b"]),
