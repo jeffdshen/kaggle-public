@@ -135,6 +135,20 @@ SAMPLING_PARAMS = {
         max_tokens=8192,
         seed=42,
     ),
+    "r1": SamplingParams(
+        temperature=0.6,
+        top_p=0.95,
+        skip_special_tokens=True,
+        max_tokens=32768,
+        seed=42,
+    ),
+    "r1_short": SamplingParams(
+        temperature=0.6,
+        top_p=0.95,
+        skip_special_tokens=True,
+        max_tokens=8192,
+        seed=42,
+    ),
 }
 
 SYSTEM_PARAMS_LIST = [
@@ -187,6 +201,48 @@ SYSTEM_PARAMS_LIST = [
         message="Think step-by-step. Put the answer in \\boxed{}. "
         "If uncertain, answer \\boxed{N/A}.",
         sampling_params=SAMPLING_PARAMS["greedy_short"],
+    ),
+    SystemParams(
+        name="r1_v1a",
+        message="Please reason step by step, and put your final answer within \\boxed{}.",
+        sampling_params=SAMPLING_PARAMS["greedy"],
+        question_format="{question}\n\nWhat is the answer modulo 1000?",
+    ),
+    SystemParams(
+        name="r1_v1b",
+        message="Please reason step by step, and put your final answer within \\boxed{}.",
+        sampling_params=SAMPLING_PARAMS["r1"],
+        question_format="{question}\n\nWhat is the answer modulo 1000?",
+    ),
+    SystemParams(
+        name="r1_v1c",
+        message="Please reason step by step, and put your final answer within \\boxed{}.",
+        sampling_params=SAMPLING_PARAMS["greedy_short"],
+        question_format="{question}\n\nWhat is the answer modulo 1000?",
+    ),
+    SystemParams(
+        name="r1_v2a",
+        message="",
+        sampling_params=SAMPLING_PARAMS["greedy"],
+        question_format="{question}\n\n"
+        "What is the answer modulo 1000? "
+        "Please reason step by step, and put your final answer within \\boxed{}.",
+    ),
+    SystemParams(
+        name="r1_v2b",
+        message="",
+        sampling_params=SAMPLING_PARAMS["r1"],
+        question_format="{question}\n\n"
+        "What is the answer modulo 1000? "
+        "Please reason step by step, and put your final answer within \\boxed{}.",
+    ),
+    SystemParams(
+        name="r1_v2c",
+        message="",
+        sampling_params=SAMPLING_PARAMS["greedy_short"],
+        question_format="{question}\n\n"
+        "What is the answer modulo 1000? "
+        "Please reason step by step, and put your final answer within \\boxed{}.",
     ),
 ]
 

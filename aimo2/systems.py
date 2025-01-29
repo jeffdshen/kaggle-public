@@ -62,24 +62,49 @@ class System(ABC):
         pass
 
 
+def boxed_extract(request_output: RequestOutput) -> list[int]:
+    boxed = extract_boxed_texts(request_output.outputs[0].text)
+    answer = convert_texts_to_int(boxed)
+    answer = [a % 1000 for a in answer]
+    return answer
+
+
+EXTRACTORS = {
+    "boxed": boxed_extract,
+}
+
+
 @dataclass(frozen=True)
 class SystemParams:
     name: str
-    """The name of the system prompt."""
-
-    message: str | None
-    """The message of the system prompt."""
+    """The name of the prompt."""
 
     sampling_params: SamplingParams
     """The sampling parameters."""
 
-    def to_request_input(self) -> RequestInput:
+    message: str | None = None
+    """The message of the prompt."""
+
+    question_format: str | None = None
+    """The format of the question. Passes in the question as {question}."""
+
+    extract: str = "boxed"
+    """The extraction function. If None, use boxed."""
+
+    def make_input(self, question: str) -> RequestInput:
+        """Convert the system params to a request input."""
         request_input = RequestInput(
             sampling_params=self.sampling_params,
         )
-        if self.message is None:
-            return request_input
-        return request_input.add_system_message(self.message)
+        if self.message is not None:
+            request_input = request_input.add_system_message(self.message)
+        if self.question_format is not None:
+            question = self.question_format.format(question=question)
+        return request_input.add_user_message(question)
+
+    def extract_answers(self, request_output: RequestOutput) -> list[int]:
+        """Extract the answers from the request output."""
+        return EXTRACTORS[self.extract](request_output)
 
 
 @dataclass
@@ -129,18 +154,13 @@ class WeightedEnsemble(System):
         if self.full_timeout is not None and time_elapsed > self.full_timeout:
             return 0
 
-        request_inputs = [
-            system_params.to_request_input().add_user_message(question)
-            for system_params in self.system_params
-        ]
+        request_inputs = [params.make_input(question) for params in self.system_params]
         request_outputs: list[RequestOutput] = yield request_inputs
         assert len(request_outputs) == len(request_inputs)
-        boxed = [
-            extract_boxed_texts(request_output.outputs[0].text)
-            for request_output in request_outputs
+        answers = [
+            params.extract_answers(request_output)
+            for params, request_output in zip(self.system_params, request_outputs)
         ]
-        answers = [convert_texts_to_int(text) for text in boxed]
-        answers = [[a % 1000 for a in answer] for answer in answers]
 
         if self.question_log:
             for i, request_output in enumerate(request_outputs):
