@@ -226,7 +226,7 @@ SYSTEM_PARAMS_LIST = [
         sampling_params=SAMPLING_PARAMS["greedy"],
         question_format="{question}\n\n"
         "What is the answer modulo 1000? "
-        "Please reason step by step, and put your final answer within \\boxed{}.",
+        "Please reason step by step, and put your final answer within \\boxed{{}}.",
     ),
     SystemParams(
         name="r1_v2b",
@@ -234,7 +234,7 @@ SYSTEM_PARAMS_LIST = [
         sampling_params=SAMPLING_PARAMS["r1"],
         question_format="{question}\n\n"
         "What is the answer modulo 1000? "
-        "Please reason step by step, and put your final answer within \\boxed{}.",
+        "Please reason step by step, and put your final answer within \\boxed{{}}.",
     ),
     SystemParams(
         name="r1_v2c",
@@ -242,7 +242,7 @@ SYSTEM_PARAMS_LIST = [
         sampling_params=SAMPLING_PARAMS["greedy_short"],
         question_format="{question}\n\n"
         "What is the answer modulo 1000? "
-        "Please reason step by step, and put your final answer within \\boxed{}.",
+        "Please reason step by step, and put your final answer within \\boxed{{}}.",
     ),
 ]
 
