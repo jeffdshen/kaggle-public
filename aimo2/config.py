@@ -93,7 +93,7 @@ def load_llm(model: str):
     llm = LLM(
         model,
         max_model_len=32768,
-        max_num_seqs=6,
+        max_num_seqs=16,
         trust_remote_code=True,
         tensor_parallel_size=4,
         gpu_memory_utilization=0.9,
