@@ -93,7 +93,7 @@ def load_llm(model: str):
     llm = LLM(
         model,
         max_model_len=32768,
-        max_num_seqs=16,
+        max_num_seqs=32,
         trust_remote_code=True,
         tensor_parallel_size=4,
         gpu_memory_utilization=0.9,
@@ -135,6 +135,12 @@ SAMPLING_PARAMS = {
         max_tokens=8192,
         seed=42,
     ),
+    "greedy_medium": SamplingParams(
+        temperature=0.0,
+        skip_special_tokens=True,
+        max_tokens=12288,
+        seed=42,
+    ),
     "r1": SamplingParams(
         temperature=0.6,
         top_p=0.95,
@@ -147,6 +153,13 @@ SAMPLING_PARAMS = {
         top_p=0.95,
         skip_special_tokens=True,
         max_tokens=8192,
+        seed=42,
+    ),
+    "r1_medium": SamplingParams(
+        temperature=0.6,
+        top_p=0.95,
+        skip_special_tokens=True,
+        max_tokens=12288,
         seed=42,
     ),
 }
@@ -221,6 +234,18 @@ SYSTEM_PARAMS_LIST = [
         question_format="{question}\n\nWhat is the answer modulo 1000?",
     ),
     SystemParams(
+        name="r1_v1d",
+        message="Please reason step by step, and put your final answer within \\boxed{}.",
+        sampling_params=SAMPLING_PARAMS["greedy_medium"],
+        question_format="{question}\n\nWhat is the answer modulo 1000?",
+    ),
+    SystemParams(
+        name="r1_v1e",
+        message="Please reason step by step, and put your final answer within \\boxed{}.",
+        sampling_params=SAMPLING_PARAMS["r1_medium"],
+        question_format="{question}\n\nWhat is the answer modulo 1000?",
+    ),
+    SystemParams(
         name="r1_v2a",
         message="",
         sampling_params=SAMPLING_PARAMS["greedy"],
@@ -240,6 +265,22 @@ SYSTEM_PARAMS_LIST = [
         name="r1_v2c",
         message="",
         sampling_params=SAMPLING_PARAMS["greedy_short"],
+        question_format="{question}\n\n"
+        "What is the answer modulo 1000? "
+        "Please reason step by step, and put your final answer within \\boxed{{}}.",
+    ),
+    SystemParams(
+        name="r1_v2d",
+        message="",
+        sampling_params=SAMPLING_PARAMS["greedy_medium"],
+        question_format="{question}\n\n"
+        "What is the answer modulo 1000? "
+        "Please reason step by step, and put your final answer within \\boxed{{}}.",
+    ),
+    SystemParams(
+        name="r1_v2e",
+        message="",
+        sampling_params=SAMPLING_PARAMS["r1_medium"],
         question_format="{question}\n\n"
         "What is the answer modulo 1000? "
         "Please reason step by step, and put your final answer within \\boxed{{}}.",
