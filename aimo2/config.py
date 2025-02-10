@@ -24,12 +24,12 @@ ENV = get_environment()
 
 @dataclass
 class ValidationData:
-    reference_df: pl.DataFrame
-    aime_df: pl.DataFrame
+    orig_reference_df: pl.DataFrame
+    orig_aime_df: pl.DataFrame
 
     @cached_property
-    def df(self) -> pl.DataFrame:
-        aime_df = self.aime_df.select(
+    def aime_df(self) -> pl.DataFrame:
+        return self.orig_aime_df.select(
             [
                 pl.concat_str(
                     [pl.lit("AIME_"), pl.col("id").cast(pl.Utf8).str.zfill(3)]
@@ -38,13 +38,18 @@ class ValidationData:
                 pl.col("answer").cast(pl.Int64).alias("answer"),
             ]
         )
-        reference_df = self.reference_df.select(
+
+    @cached_property
+    def reference_df(self) -> pl.DataFrame:
+        return self.orig_reference_df.select(
             pl.concat_str([pl.lit("REF_"), pl.col("id")]).alias("id"),
             pl.col("problem"),
             pl.col("answer"),
         )
 
-        df = pl.concat([aime_df, reference_df], how="vertical")
+    @cached_property
+    def df(self) -> pl.DataFrame:
+        df = pl.concat([self.aime_df, self.reference_df], how="vertical")
         return df
 
     @cached_property
@@ -168,6 +173,12 @@ SAMPLING_PARAMS = {
         skip_special_tokens=True,
         max_tokens=12288,
         seed=1337,
+    ),
+    "r1_long": SamplingParams(
+        temperature=0.6,
+        top_p=0.95,
+        skip_special_tokens=True,
+        max_tokens=16384,
     ),
 }
 
@@ -296,6 +307,14 @@ SYSTEM_PARAMS_LIST = [
         name="r1_v3a",
         message="",
         sampling_params=SAMPLING_PARAMS["r1_medium"],
+        question_format="{question}\n\n"
+        "Report your answer modulo 1000. "
+        "Please reason step by step, and put your final answer within \\boxed{{}}.",
+    ),
+    SystemParams(
+        name="r1_v3b",
+        message="",
+        sampling_params=SAMPLING_PARAMS["r1_long"],
         question_format="{question}\n\n"
         "Report your answer modulo 1000. "
         "Please reason step by step, and put your final answer within \\boxed{{}}.",
