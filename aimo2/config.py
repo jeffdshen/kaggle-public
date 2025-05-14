@@ -325,6 +325,12 @@ SYSTEM_PARAMS_LIST = [
         sampling_params=SAMPLING_PARAMS["r1_medium"],
         question_format="{question}\n\nReport your answer modulo 1000.",
     ),
+    SystemParams(
+        name="r1_v4b",
+        message="",
+        sampling_params=SAMPLING_PARAMS["r1_long"],
+        question_format="{question}\n\nReport your answer modulo 1000.",
+    ),
 ]
 
 
